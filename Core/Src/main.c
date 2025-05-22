@@ -19,7 +19,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "usb_device.h"
-
+#include "string.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "usbd_cdc_if.h"
@@ -94,20 +94,20 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 
 }
 
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
-
-	uint8_t u=0;
-	char palabra[18];
-
-	for(u=0;u<NUM_CHANNELS;u++){
-
-//		casts.u16[0]=adcBuffer[u];
-		sprintf(&palabra[0],"Channel %d:%i\n",u,adcBuffer[u]);
-//		memcpy(datosComSerie.bufferTx,palabra,sizeof(palabra));
-//		datosComSerie.indexWriteTx  += sizeof(palabra);
-	}
-	HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
-}
+//void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
+//
+//	uint8_t u=0;
+//	char palabra[18];
+//
+//	for(u=0;u<NUM_CHANNELS;u++){
+//
+////		casts.u16[0]=adcBuffer[u];
+//		sprintf(&palabra[0],"Channel %d:%i\n",u,adcBuffer[u]);
+////		memcpy(datosComSerie.bufferTx,palabra,sizeof(palabra));
+////		datosComSerie.indexWriteTx  += sizeof(palabra);
+//	}
+//	HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+//}
 
 /* USER CODE END 0 */
 
@@ -119,6 +119,7 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
 	uint8_t time250us = 0, time10ms = 0;
+	char usbMsg[128];
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -152,6 +153,7 @@ int main(void)
   datosComSerie.indexWriteRx =0;
   myFlags.allFlags = 0;
 
+  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adcBuffer, NUM_CHANNELS);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -170,7 +172,12 @@ int main(void)
 			  time10ms++;
 			  time250us = 0;
 			  if(time10ms == 100){
-				  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&adcBuffer, 8);
+				  sprintf(usbMsg,
+				          "PA0:%4u PA1:%4u PA2:%4u PA3:%4u PA4:%4u PA5:%4u PA6:%4u PA7:%4u\r\n",
+						  adcBuffer[0], adcBuffer[1], adcBuffer[2], adcBuffer[3],
+						  adcBuffer[4], adcBuffer[5], adcBuffer[6], adcBuffer[7]);
+
+				  CDC_Transmit_FS((uint8_t*)usbMsg, strlen(usbMsg));
 				  //HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 				  time10ms = 0;
 
