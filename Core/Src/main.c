@@ -23,7 +23,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "usbd_cdc_if.h"
-
+#include "UNERprotocol.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -63,6 +63,8 @@ TIM_HandleTypeDef htim1;
 
 /* USER CODE BEGIN PV */
 _bFlags myFlags;
+_sDato datosComSerie;
+_eProtocolo estadoProtocolo;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -78,9 +80,8 @@ void CDC_Attach_Rx(void(*PtRx)(uint8_t *buf, uint16_t len)); //buf contiene los 
 /* USER CODE BEGIN 0 */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 	if(htim -> Instance == TIM1){
-
+		IS10MS = TRUE;
 	}
-	IS10MS = TRUE;
 
 }
 
@@ -102,6 +103,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
+  CDC_Attach_Rx(&datafromUSB);
 
   /* USER CODE END Init */
 
@@ -129,6 +131,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	  comunicationsTask(&datosComSerie);
 
 	  if(IS10MS){
 		  time250us++;
