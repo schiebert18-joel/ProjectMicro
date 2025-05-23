@@ -24,33 +24,19 @@
 /* USER CODE BEGIN Includes */
 #include "usbd_cdc_if.h"
 #include "UNERprotocol.h"
+#include "Utilities.h"
+#include "ADC.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-typedef union {
-    struct{
-        uint8_t bit7:1;
-        uint8_t bit6:1;
-        uint8_t bit5:1;
-        uint8_t bit4:1;
-        uint8_t bit3:1;
-        uint8_t bit2:1;
-        uint8_t bit1:1;
-        uint8_t bit0:1;
-    }individualFlags;
-    uint8_t allFlags;
-}_bFlags;
 
-enum{
-	FALSE,
-	TRUE
-};
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define NUM_CHANNELS 8
+#define NUM_CHANNELS 3
 #define IS10MS myFlags.individualFlags.bit1
 /* USER CODE END PD */
 
@@ -69,6 +55,7 @@ TIM_HandleTypeDef htim1;
 _bFlags myFlags;
 _sDato datosComSerie;
 _eProtocolo estadoProtocolo;
+_sIrSensor sensorIR[8];
 uint16_t adcBuffer[NUM_CHANNELS];
 /* USER CODE END PV */
 
@@ -94,20 +81,27 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 
 }
 
-//void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
-//
-//	uint8_t u=0;
-//	char palabra[18];
-//
-//	for(u=0;u<NUM_CHANNELS;u++){
-//
-////		casts.u16[0]=adcBuffer[u];
-//		sprintf(&palabra[0],"Channel %d:%i\n",u,adcBuffer[u]);
-////		memcpy(datosComSerie.bufferTx,palabra,sizeof(palabra));
-////		datosComSerie.indexWriteTx  += sizeof(palabra);
-//	}
-//	HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
-//}
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
+	uint8_t i = 0;
+
+	if (hadc->Instance == ADC1) {
+		for (i = 0; i < NUM_CHANNELS; i++) {
+			sensorIR[i].currentValue = adcBuffer[i];
+		}
+	}
+	//	CHAR USBMSG[128];
+	//
+	//	  SPRINTF(USBMSG,
+	//	          "PA0:%4U PA1:%4U PA2:%4U PA3:%4U PA4:%4U PA5:%4U PA6:%4U PA7:%4U\R\N",
+	//			  ADCBUFFER[0], ADCBUFFER[1], ADCBUFFER[2], ADCBUFFER[3],
+	//			  ADCBUFFER[4], ADCBUFFER[5], ADCBUFFER[6], ADCBUFFER[7]);
+	//
+	//	  CDC_TRANSMIT_FS((UINT8_T*)USBMSG, STRLEN(USBMSG));
+}
+
+
+
+
 
 /* USER CODE END 0 */
 
@@ -119,7 +113,6 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
 	uint8_t time250us = 0, time10ms = 0;
-	char usbMsg[128];
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -153,7 +146,6 @@ int main(void)
   datosComSerie.indexWriteRx =0;
   myFlags.allFlags = 0;
 
-  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adcBuffer, NUM_CHANNELS);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -171,14 +163,9 @@ int main(void)
 		  if(time250us >= 40){
 			  time10ms++;
 			  time250us = 0;
+			  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adcBuffer, NUM_CHANNELS);
 			  if(time10ms == 100){
-				  sprintf(usbMsg,
-				          "PA0:%4u PA1:%4u PA2:%4u PA3:%4u PA4:%4u PA5:%4u PA6:%4u PA7:%4u\r\n",
-						  adcBuffer[0], adcBuffer[1], adcBuffer[2], adcBuffer[3],
-						  adcBuffer[4], adcBuffer[5], adcBuffer[6], adcBuffer[7]);
-
-				  CDC_Transmit_FS((uint8_t*)usbMsg, strlen(usbMsg));
-				  //HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+				  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 				  time10ms = 0;
 
 			  }

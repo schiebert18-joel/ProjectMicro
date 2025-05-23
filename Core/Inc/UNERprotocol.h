@@ -10,18 +10,26 @@
 
 #include "stm32f4xx.h"
 
+typedef struct{
+	uint8_t indexWrite;
+	uint8_t indexRead;
+	uint8_t buffercomm[256];
+}_sBus;
+
 typedef struct ComStruct{
     uint8_t timeOut;         //!< TiemOut para reiniciar la máquina si se interrumpe la comunicación
     uint8_t indexStart;      //!< Indice para saber en que parte del buffer circular arranca el ID
     uint8_t cheksumRx;       //!< Cheksumm RX
-    volatile uint8_t indexWriteRx;    //!< Indice de escritura del buffer circular de recepción
+    _sBus	Tx;
+    _sBus	Rx;
+    uint8_t indexWriteRx;    //!< Indice de escritura del buffer circular de recepción
     uint8_t indexReadRx;     //!< Indice de lectura del buffer circular de recepción
     uint8_t indexWriteTx;    //!< Indice de escritura del buffer circular de transmisión
     uint8_t indexReadTx;     //!< Indice de lectura del buffer circular de transmisión
     uint8_t bufferRx[256];   //!< Buffer circular de recepción
     uint8_t bufferTx[256];   //!< Buffer circular de transmisión
     uint8_t bytesTosend;	 //!< Cuantos bytes voy a trasnmitir
-}_sDato ;
+}_sDato;
 
 typedef enum ProtocolState{
     START,
@@ -36,14 +44,12 @@ typedef enum ProtocolState{
 typedef enum Comands{
     ALIVE=0xF0,
     FIRMWARE=0xF1,
-	TEXT = 0xF2,
-	STARTCONFIG=0xEE,
+    IR=0xA0,
 //    LEDS=0x10,
 //    PULSADORES=0x12,
 //    SERVO=0xA2,
 //    SCANNER=0xA8,
 //    MOTOR=0xA1,
-//    IR=0xA0,
 //    SPEED=0xA4,
 //    SERVOCONFIG=0xA5,
 //    BLACKIR=0xA6,

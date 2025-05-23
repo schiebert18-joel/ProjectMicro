@@ -7,7 +7,11 @@
 
 #include "usbd_cdc_if.h"
 #include "UNERprotocol.h"
+#include "Utilities.h"
+#include "ADC.h"
 
+_work w;
+_sIrSensor irSensor[8];
 /**
  * recibo la informacion enviada por puerto USB (lo enviado por QT), y guardo los bytes recibidos en el buffer circular bufferRx[] de la estructura datosComSerie
  * UNER = 55 4E 45 52 // Nbytes= 02 // ':' = 3A // Alive= F0 // 0xC4 = checksum
@@ -144,18 +148,20 @@ void decodeData(_sDato *datosCom){ //responde segun el ID recibido. Busca el ID 
 
     break;
 
-    case TEXT:
-
-		bufAux[indiceAux++]=TEXT;
-//		bytes=;
-
     break;
 
-    default:
+    case IR:
+		bufAux[indiceAux++] = IR;
+			for (int i = 0; i < 3; i++) {
+				w.u16[0] = irSensor[i].currentValue;
+				bufAux[indiceAux++] = w.u8[0];
+				bufAux[indiceAux++] = w.u8[1];
+			}
+		bytes = 1 + (3 * 2);  // ID + 3 valores de 2 bytes
 
+    default:
         bufAux[indiceAux++]=0xFF;
         bytes=0x02;
-
     break;
     }
 

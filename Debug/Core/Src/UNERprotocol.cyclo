@@ -1,5 +1,5 @@
-../Core/Src/UNERprotocol.c:16:6:datafromUSB	2
-../Core/Src/UNERprotocol.c:27:6:comunicationsTask	2
-../Core/Src/UNERprotocol.c:50:6:DecodeHeader	17
-../Core/Src/UNERprotocol.c:127:6:decodeData	5
-../Core/Src/UNERprotocol.c:166:6:SendInfo	3
+../Core/Src/UNERprotocol.c:20:6:datafromUSB	2
+../Core/Src/UNERprotocol.c:31:6:comunicationsTask	2
+../Core/Src/UNERprotocol.c:54:6:DecodeHeader	17
+../Core/Src/UNERprotocol.c:131:6:decodeData	6
+../Core/Src/UNERprotocol.c:172:6:SendInfo	3
