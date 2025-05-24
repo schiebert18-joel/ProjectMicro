@@ -11,9 +11,9 @@
 #include "stm32f4xx.h"
 
 typedef struct{
-	uint8_t indexWrite;
-	uint8_t indexRead;
-	uint8_t buffercomm[256];
+	uint8_t indexWrite;			//!< Indice de escritura del buffer circular
+	uint8_t indexRead;		 	//!< Indice de lectura del buffer circular
+	uint8_t buffercomm[256]; 	//!< Buffer circular
 }_sBus;
 
 typedef struct ComStruct{
@@ -22,11 +22,6 @@ typedef struct ComStruct{
     uint8_t cheksumRx;       //!< Cheksumm RX
     _sBus	Tx;
     _sBus	Rx;
-    uint8_t indexWriteRx;    //!< Indice de escritura del buffer circular de recepción
-    uint8_t indexReadRx;     //!< Indice de lectura del buffer circular de recepción
-    uint8_t indexWriteTx;    //!< Indice de escritura del buffer circular de transmisión
-    uint8_t indexReadTx;     //!< Indice de lectura del buffer circular de transmisión
-    uint8_t bufferRx[256];   //!< Buffer circular de recepción
     uint8_t bufferTx[256];   //!< Buffer circular de transmisión
     uint8_t bytesTosend;	 //!< Cuantos bytes voy a trasnmitir
 }_sDato;

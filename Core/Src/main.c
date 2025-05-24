@@ -19,7 +19,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "usb_device.h"
-#include "string.h"
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "usbd_cdc_if.h"
@@ -89,14 +89,21 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
 			sensorIR[i].currentValue = adcBuffer[i];
 		}
 	}
-	//	CHAR USBMSG[128];
-	//
-	//	  SPRINTF(USBMSG,
-	//	          "PA0:%4U PA1:%4U PA2:%4U PA3:%4U PA4:%4U PA5:%4U PA6:%4U PA7:%4U\R\N",
-	//			  ADCBUFFER[0], ADCBUFFER[1], ADCBUFFER[2], ADCBUFFER[3],
-	//			  ADCBUFFER[4], ADCBUFFER[5], ADCBUFFER[6], ADCBUFFER[7]);
-	//
-	//	  CDC_TRANSMIT_FS((UINT8_T*)USBMSG, STRLEN(USBMSG));
+
+//
+//	char usbMsg[128];
+//	sprintf(usbMsg, "PA0: %4u\r\n", adcBuffer[0]);
+//	CDC_Transmit_FS((uint8_t*)usbMsg, strlen(usbMsg));
+
+//	char usbMsg[128];
+//	sprintf(usbMsg,
+//	        "PA0:%4u PA1:%4u PA2:%4u PA3:%4u PA4:%4u PA5:%4u PA6:%4u PA7:%4u\r\n",
+//			adcBuffer[0], adcBuffer[1], adcBuffer[2], adcBuffer[3],
+//			adcBuffer[4], adcBuffer[5], adcBuffer[6], adcBuffer[7]);
+//
+//
+//	CDC_Transmit_FS((uint8_t*)usbMsg, strlen(usbMsg));
+
 }
 
 
@@ -142,8 +149,8 @@ int main(void)
   HAL_TIM_Base_Start_IT(&htim1);
 
   IS10MS = FALSE;
-  datosComSerie.indexReadRx = 0;
-  datosComSerie.indexWriteRx =0;
+  datosComSerie.Rx.indexRead = 0;
+  datosComSerie.Rx.indexWrite =0;
   myFlags.allFlags = 0;
 
   /* USER CODE END 2 */
@@ -163,9 +170,9 @@ int main(void)
 		  if(time250us >= 40){
 			  time10ms++;
 			  time250us = 0;
-			  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adcBuffer, NUM_CHANNELS);
-			  if(time10ms == 100){
+			  if(time10ms == 10){
 				  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+				  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adcBuffer, NUM_CHANNELS);
 				  time10ms = 0;
 
 			  }
@@ -249,7 +256,7 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 8;
+  hadc1.Init.NbrOfConversion = 3;
   hadc1.Init.DMAContinuousRequests = DISABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
@@ -280,51 +287,6 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_2;
   sConfig.Rank = 3;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
-  sConfig.Channel = ADC_CHANNEL_3;
-  sConfig.Rank = 4;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
-  sConfig.Channel = ADC_CHANNEL_4;
-  sConfig.Rank = 5;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
-  sConfig.Channel = ADC_CHANNEL_5;
-  sConfig.Rank = 6;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
-  sConfig.Channel = ADC_CHANNEL_6;
-  sConfig.Rank = 7;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
-  sConfig.Channel = ADC_CHANNEL_7;
-  sConfig.Rank = 8;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();

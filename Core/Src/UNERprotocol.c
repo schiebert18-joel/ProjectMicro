@@ -13,7 +13,7 @@
 _work w;
 _sIrSensor irSensor[8];
 /**
- * recibo la informacion enviada por puerto USB (lo enviado por QT), y guardo los bytes recibidos en el buffer circular bufferRx[] de la estructura datosComSerie
+ * recibo la informacion enviada por puerto USB (lo enviado por QT), y guardo los bytes recibidos en el buffer circular Rx.buffercomm[] de la estructura datosComSerie
  * UNER = 55 4E 45 52 // Nbytes= 02 // ':' = 3A // Alive= F0 // 0xC4 = checksum
  */
 
@@ -22,8 +22,8 @@ void datafromUSB(uint8_t *buf, uint16_t length){
   uint16_t i;
 
   for (i = 0; i < length; i++) {
-	datosComSerie.bufferRx[datosComSerie.indexWriteRx] = buf[i];
-	datosComSerie.indexWriteRx++;
+	datosComSerie.Rx.buffercomm[datosComSerie.Rx.indexWrite] = buf[i];
+	datosComSerie.Rx.indexWrite++;
   }
 
 }
@@ -31,19 +31,19 @@ void datafromUSB(uint8_t *buf, uint16_t length){
 void comunicationsTask(_sDato *datosCom){
 
 	//si llegó informacion entonces llamo a decodeheader para el analisis del protocolo "UNER"
-	if(datosCom->indexReadRx!=datosCom->indexWriteRx ){ //si Recepcion write =! Recepcion read => buffer lleno
+	if(datosCom->Rx.indexRead!=datosCom->Rx.indexWrite ){ //si Recepcion write =! Recepcion read => buffer lleno
 		DecodeHeader(datosCom);
-		datosComSerie.indexReadRx=datosComSerie.indexWriteRx;
+		datosComSerie.Rx.indexRead=datosComSerie.Rx.indexWrite;
 	}
 
-//	if(datosCom->indexWriteTx > datosCom->indexReadTx){
-//		datosComSerie.bytesTosend = datosCom->indexWriteTx - datosCom->indexReadTx;
+//	if(datosCom->Tx.indexWrite > datosCom->Tx.indexRead){
+//		datosComSerie.bytesTosend = datosCom->Tx.indexWrite - datosCom->Tx.indexRead;
 //	}else{
-//		datosComSerie.bytesTosend = 256 - datosCom->indexReadTx;
+//		datosComSerie.bytesTosend = 256 - datosCom->Tx.indexRead;
 //	}
 //
-//	if(CDC_Transmit_FS(&datosComSerie.bufferTx[datosComSerie.indexReadTx], datosComSerie.bytesTosend) == USBD_OK){
-//		datosComSerie.indexReadTx += datosComSerie.bytesTosend;
+//	if(CDC_Transmit_FS(&datosComSerie.Tx.buffercomm[datosComSerie.Tx.indexRead], datosComSerie.bytesTosend) == USBD_OK){
+//		datosComSerie.Tx.indexRead += datosComSerie.bytesTosend;
 //	}
 }
 
@@ -55,66 +55,66 @@ void DecodeHeader(_sDato *datosCom){ //Recibo un puntero a la estructura de comu
 
     static uint8_t nBytes=0;		//Variable estática para recordar cuántos bytes de payload quedan por procesar
 
-    uint8_t indexWriteRxCopy=datosCom->indexWriteRx; //Guardo una copia del índice de escritura para no interferir con interrupciones
+    uint8_t indexWriteRxCopy = datosCom->Rx.indexWrite; //Guardo una copia del índice de escritura para no interferir con interrupciones
 
-    while (datosCom->indexReadRx!=indexWriteRxCopy)
+    while (datosCom->Rx.indexRead!=indexWriteRxCopy)
     {
         switch (estadoProtocolo) {					//Mientras haya nuevos datos no leídos en el buffer de recepción...
             case START:
-                if (datosCom->bufferRx[datosCom->indexReadRx++]=='U'){
+                if (datosCom->Rx.buffercomm[datosCom->Rx.indexRead++]=='U'){
                     estadoProtocolo=HEADER_1;
                     datosCom->cheksumRx=0;
                 }
                 break;
             case HEADER_1:
-                if (datosCom->bufferRx[datosCom->indexReadRx++]=='N')
+                if (datosCom->Rx.buffercomm[datosCom->Rx.indexRead++]=='N')
                    estadoProtocolo=HEADER_2;
                 else{
-                    datosCom->indexReadRx--;
+                    datosCom->Rx.indexRead--;
                     estadoProtocolo=START;
                 }
                 break;
             case HEADER_2:
-                if (datosCom->bufferRx[datosCom->indexReadRx++]=='E')
+                if (datosCom->Rx.buffercomm[datosCom->Rx.indexRead++]=='E')
                     estadoProtocolo=HEADER_3;
                 else{
-                    datosCom->indexReadRx--;
+                    datosCom->Rx.indexRead--;
                    estadoProtocolo=START;
                 }
                 break;
 			case HEADER_3:
-				if (datosCom->bufferRx[datosCom->indexReadRx++]=='R')
+				if (datosCom->Rx.buffercomm[datosCom->Rx.indexRead++]=='R')
 					estadoProtocolo=NBYTES;
 				else{
-					datosCom->indexReadRx--;
+					datosCom->Rx.indexRead--;
 				    estadoProtocolo=START;
 				}
             break;
             case NBYTES: //Leer byte de cantidad de datos (nBytes) y avanzar
-                datosCom->indexStart=datosCom->indexReadRx;
-                nBytes=datosCom->bufferRx[datosCom->indexReadRx++];
+                datosCom->indexStart=datosCom->Rx.indexRead;
+                nBytes=datosCom->Rx.buffercomm[datosCom->Rx.indexRead++];
                 estadoProtocolo=TOKEN;
                 break;
             case TOKEN:
-                if (datosCom->bufferRx[datosCom->indexReadRx++]==':'){
+                if (datosCom->Rx.buffercomm[datosCom->Rx.indexRead++]==':'){
 
                    estadoProtocolo=PAYLOAD;
                     datosCom->cheksumRx ='U'^'N'^'E'^'R'^ nBytes^':';
                 }
                 else{
-                    datosCom->indexReadRx--;
+                    datosCom->Rx.indexRead--;
                     estadoProtocolo=START;
                 }
                 break;
             case PAYLOAD:
 
                 if (nBytes>1){
-                    datosCom->cheksumRx ^= datosCom->bufferRx[datosCom->indexReadRx++];
+                    datosCom->cheksumRx ^= datosCom->Rx.buffercomm[datosCom->Rx.indexRead++];
                 }
                 nBytes--;
                 if(nBytes<=0){ //Cuando ya se leyeron todos los datos, compara el checksum. Si es correcto, llama a decodeData() para procesar el mensaje.
                     estadoProtocolo=START;
-                    if(datosCom->cheksumRx == datosCom->bufferRx[datosCom->indexReadRx]){
+                    if(datosCom->cheksumRx == datosCom->Rx.buffercomm[datosCom->Rx.indexRead]){
                         decodeData(datosCom);
                     }
                 }
@@ -133,7 +133,7 @@ void decodeData(_sDato *datosCom){ //responde segun el ID recibido. Busca el ID 
 
     uint8_t bufAux[20], indiceAux=0,bytes=0;
 
-    switch (datosCom->bufferRx[datosCom->indexStart+2])//CMD EN LA POSICION 2, /ID EN LA POSICION 2, porque es donde se adjunta el byte que te dice "ALIVE, FIRMWARE, ETC"
+    switch (datosCom->Rx.buffercomm[datosCom->indexStart+2])//CMD EN LA POSICION 2, /ID EN LA POSICION 2, porque es donde se adjunta el byte que te dice "ALIVE, FIRMWARE, ETC"
     {
 
 	case ALIVE:
@@ -158,7 +158,7 @@ void decodeData(_sDato *datosCom){ //responde segun el ID recibido. Busca el ID 
 				bufAux[indiceAux++] = w.u8[1];
 			}
 		bytes = 1 + (3 * 2);  // ID + 3 valores de 2 bytes
-
+		break;
     default:
         bufAux[indiceAux++]=0xFF;
         bytes=0x02;
@@ -187,19 +187,19 @@ void SendInfo(uint8_t bufferAux[], uint8_t bytes){
 
     cks	= 0;
 
-    //Cargar en bufferTx con checksum:
+    //Cargar en Tx.buffercomm con checksum:
     for(i=0 ;i<indiceAux;i++){
         cks^= bufAux[i];
-        datosComSerie.bufferTx[datosComSerie.indexWriteTx++]=bufAux[i];
+        datosComSerie.Tx.buffercomm[datosComSerie.Tx.indexWrite++]=bufAux[i];
     }
     // Agregar el checksum al final
-    datosComSerie.bufferTx[datosComSerie.indexWriteTx++]=cks;
+    datosComSerie.Tx.buffercomm[datosComSerie.Tx.indexWrite++]=cks;
     // Cantidad total de bytes a transmitir (incluyendo checksum)
-    datosComSerie.bytesTosend = datosComSerie.indexWriteTx;
+    datosComSerie.bytesTosend = datosComSerie.Tx.indexWrite;
 
     // Paquete enviado hacia QT: 55 4E 45 52   01 	 3A     F0         0D          C8
     //							 'U''N''E''R''Nbytes'':''ID:Alive''Payload: ACK''Cheksum'
-    CDC_Transmit_FS(&datosComSerie.bufferTx[datosComSerie.indexReadTx], datosComSerie.bytesTosend); //transmision por USB hacia QT
-    datosComSerie.indexWriteTx = 0;
+    CDC_Transmit_FS(&datosComSerie.Tx.buffercomm[datosComSerie.Tx.indexRead], datosComSerie.bytesTosend); //transmision por USB hacia QT
+    datosComSerie.Tx.indexWrite = 0;
 
 }
