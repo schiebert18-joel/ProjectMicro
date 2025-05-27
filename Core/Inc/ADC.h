@@ -8,6 +8,9 @@
 #ifndef INC_ADC_H_
 #define INC_ADC_H_
 
+
+#define NUM_CHANNELS_ADC 8
+
 /**
  * @brief estructura de datos para los sensores IR
  * @param currentValue: donde guardo los valores presentes
@@ -15,6 +18,7 @@
  * @param whiteValue:   Valor que corresponde a valores white
  */
 typedef struct{
+	uint16_t bufferADCvalue[NUM_CHANNELS_ADC];
 	uint16_t currentValue;
 	uint16_t blackValue;
 	uint16_t whiteValue;

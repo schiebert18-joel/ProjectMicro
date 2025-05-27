@@ -8,16 +8,15 @@
 #include "usbd_cdc_if.h"
 #include "UNERprotocol.h"
 #include "Utilities.h"
-#include "ADC.h"
 
 _work w;
-_sIrSensor irSensor[8];
+
 /**
  * recibo la informacion enviada por puerto USB (lo enviado por QT), y guardo los bytes recibidos en el buffer circular Rx.buffercomm[] de la estructura datosComSerie
  * UNER = 55 4E 45 52 // Nbytes= 02 // ':' = 3A // Alive= F0 // 0xC4 = checksum
  */
 
-void datafromUSB(uint8_t *buf, uint16_t length){
+void CommDatafromUSB(uint8_t *buf, uint16_t length){
 
   uint16_t i;
 
@@ -28,11 +27,11 @@ void datafromUSB(uint8_t *buf, uint16_t length){
 
 }
 
-void comunicationsTask(_sDato *datosCom){
+void CommComunicationsTask(_sDato *datosCom){
 
 	//si llegó informacion entonces llamo a decodeheader para el analisis del protocolo "UNER"
 	if(datosCom->Rx.indexRead!=datosCom->Rx.indexWrite ){ //si Recepcion write =! Recepcion read => buffer lleno
-		DecodeHeader(datosCom);
+		CommDecodeHeader(datosCom);
 		datosComSerie.Rx.indexRead=datosComSerie.Rx.indexWrite;
 	}
 
@@ -51,7 +50,7 @@ void comunicationsTask(_sDato *datosCom){
  * Máquina de estados que busca: 'U', 'N', 'E', 'R', nBytes, ':', Payload, Checksum
  * Si todo es válido, llama a: decodeData(datosCom);
  */
-void DecodeHeader(_sDato *datosCom){ //Recibo un puntero a la estructura de comunicación que contiene los buffers y los índices
+void CommDecodeHeader(_sDato *datosCom){ //Recibo un puntero a la estructura de comunicación que contiene los buffers y los índices
 
     static uint8_t nBytes=0;		//Variable estática para recordar cuántos bytes de payload quedan por procesar
 
@@ -115,7 +114,7 @@ void DecodeHeader(_sDato *datosCom){ //Recibo un puntero a la estructura de comu
                 if(nBytes<=0){ //Cuando ya se leyeron todos los datos, compara el checksum. Si es correcto, llama a decodeData() para procesar el mensaje.
                     estadoProtocolo=START;
                     if(datosCom->cheksumRx == datosCom->Rx.buffercomm[datosCom->Rx.indexRead]){
-                        decodeData(datosCom);
+                        CommDecodeData(datosCom);
                     }
                 }
 
@@ -128,7 +127,7 @@ void DecodeHeader(_sDato *datosCom){ //Recibo un puntero a la estructura de comu
 }
 
 //si el protocolo fue valido => preparo respuestas
-void decodeData(_sDato *datosCom){ //responde segun el ID recibido. Busca el ID del comando en la tercera posición del payload (después del token y del byte de longitud).
+void CommDecodeData(_sDato *datosCom){ //responde segun el ID recibido. Busca el ID del comando en la tercera posición del payload (después del token y del byte de longitud).
 
 
     uint8_t bufAux[20], indiceAux=0,bytes=0;
@@ -141,35 +140,33 @@ void decodeData(_sDato *datosCom){ //responde segun el ID recibido. Busca el ID 
 		bufAux[indiceAux++] = 0x0D;    	// Respuesta: ACK
 		bytes = 0x03;        			// NBYTES = 3 (ID + Dato + Checksum)
 	break;
-    case FIRMWARE:
 
+    case FIRMWARE:
 		bufAux[indiceAux++]=FIRMWARE;
 		bytes=0x02;
-
     break;
 
     break;
 
     case IR:
 		bufAux[indiceAux++] = IR;
-			for (int i = 0; i < 3; i++) {
-				w.u16[0] = irSensor[i].currentValue;
-				bufAux[indiceAux++] = w.u8[0];
-				bufAux[indiceAux++] = w.u8[1];
-			}
-		bytes = 1 + (3 * 2);  // ID + 3 valores de 2 bytes
-		break;
+		//w.u16[0] = IRsensor.bufferADCvalue[0];
+		bufAux[indiceAux++] = w.u8[0];
+		bufAux[indiceAux++] = w.u8[1];
+		bytes = 3;
+	break;
+
     default:
         bufAux[indiceAux++]=0xFF;
         bytes=0x02;
     break;
     }
 
-    SendInfo(bufAux,bytes);
+    CommSendInfo(bufAux,bytes);
 }
 
 //calculo y envio el checksum
-void SendInfo(uint8_t bufferAux[], uint8_t bytes){
+void CommSendInfo(uint8_t bufferAux[], uint8_t bytes){
 
     uint8_t bufAux[20], indiceAux=0,cks=0,i=0;
 

@@ -8,8 +8,6 @@
 #ifndef INC_UNERPROTOCOL_H_
 #define INC_UNERPROTOCOL_H_
 
-#include "stm32f4xx.h"
-
 typedef struct{
 	uint8_t indexWrite;			//!< Indice de escritura del buffer circular
 	uint8_t indexRead;		 	//!< Indice de lectura del buffer circular
@@ -57,11 +55,11 @@ typedef enum Comands{
 extern _sDato datosComSerie;
 extern _eProtocolo estadoProtocolo;
 
-void datafromUSB(uint8_t *buf, uint16_t length);	//// recibo la informacion enviada por puerto USB (lo enviado por QT), y guardo los bytes recibidos en el buffer circular bufferRx[] de la estructura datosComSerie
-void comunicationsTask(_sDato *datosCom);			//Verifico si llegó informacion
-void DecodeHeader(_sDato *datosCom); 				//Recibo un puntero a la estructura de comunicación que contiene los buffers y los índices
-void decodeData(_sDato *datosCom);					//responde segun el ID recibido. Busca el ID del comando en la tercera posición del payload (después del token y del byte de longitud).
-void SendInfo(uint8_t bufferAux[], uint8_t bytes); 	//calculo y envio el checksum
+void CommDatafromUSB(uint8_t *buf, uint16_t length);	/*!< recibo la informacion enviada por puerto USB (lo enviado por QT), y guardo los bytes recibidos en el buffer circular bufferRx[] de la estructura datosComSerie */
+void CommComunicationsTask(_sDato *datosCom);			/*!< Verifico si llegó informacion */
+void CommDecodeHeader(_sDato *datosCom); 				/*!< Recibo un puntero a la estructura de comunicación que contiene los buffers y los índices */
+void CommDecodeData(_sDato *datosCom);					/*!< responde segun el ID recibido. Busca el ID del comando en la tercera posición del payload (después del token y del byte de longitud) */
+void CommSendInfo(uint8_t bufferAux[], uint8_t bytes); 	/*!< calculo y envio el checksum */
 
 
 

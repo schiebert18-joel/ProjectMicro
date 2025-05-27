@@ -1,5 +1,5 @@
-../Core/Src/UNERprotocol.c:20:6:datafromUSB	24	static
-../Core/Src/UNERprotocol.c:31:6:comunicationsTask	16	static
-../Core/Src/UNERprotocol.c:54:6:DecodeHeader	24	static
-../Core/Src/UNERprotocol.c:131:6:decodeData	48	static
-../Core/Src/UNERprotocol.c:172:6:SendInfo	40	static
+../Core/Src/UNERprotocol.c:19:6:CommDatafromUSB	24	static
+../Core/Src/UNERprotocol.c:30:6:CommComunicationsTask	16	static
+../Core/Src/UNERprotocol.c:53:6:CommDecodeHeader	24	static
+../Core/Src/UNERprotocol.c:130:6:CommDecodeData	40	static
+../Core/Src/UNERprotocol.c:169:6:CommSendInfo	40	static
