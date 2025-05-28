@@ -59,6 +59,7 @@ _sDato datosComSerie;
 _eProtocolo estadoProtocolo;
 _sIrSensor sensorIR;
 _sEng motorL,motorR;
+_eEngState estado;
 
 /* USER CODE END PV */
 
@@ -74,7 +75,10 @@ uint8_t CDC_Transmit_FS(uint8_t *buf, uint16_t len);
 void CDC_Attach_Rx(void(*PtRx)(uint8_t *buf, uint16_t len)); //buf contiene los bytes recibidos, y len cuantos bytes llegaron
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc);
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim);
-void Engines_task();
+void MotorL_SetPWM(uint16_t dCycle);
+void MotorR_SetPWM(uint16_t dCycle);
+void MotorL_SetPIN(_eEngState estado);
+void MotorR_SetPIN(_eEngState estado);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -102,65 +106,6 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
 	//	CDC_Transmit_FS((uint8_t*)usbMsg, strlen(usbMsg));
 }
 
-void Engines_task(){
-
-	en_HandlerENG(&motorR, 50000, 0);
-	en_HandlerENG(&motorL, 50000, 0);
-
-	switch(motorL.estado){
-		case BRAKE:
-			HAL_GPIO_WritePin(OutEngA_1_GPIO_Port, OutEngA_1_Pin, 1);
-			HAL_GPIO_WritePin(OutEngA_2_GPIO_Port, OutEngA_2_Pin, 1);
-			break;
-
-		case FRONT:
-			HAL_GPIO_WritePin(OutEngA_1_GPIO_Port, OutEngA_1_Pin, 1);
-			HAL_GPIO_WritePin(OutEngA_2_GPIO_Port, OutEngA_2_Pin, 0);
-			break;
-
-		case BACK:
-			HAL_GPIO_WritePin(OutEngA_1_GPIO_Port, OutEngA_1_Pin, 0);
-			HAL_GPIO_WritePin(OutEngA_2_GPIO_Port, OutEngA_2_Pin, 1);
-			break;
-
-		case FREE:
-			HAL_GPIO_WritePin(OutEngA_1_GPIO_Port, OutEngA_1_Pin, 0);
-			HAL_GPIO_WritePin(OutEngA_2_GPIO_Port, OutEngA_2_Pin, 0);
-			break;
-		default:
-			break;
-	}
-	switch(motorR.estado){
-		case BRAKE:
-			HAL_GPIO_WritePin(OutEngB_1_GPIO_Port, OutEngB_1_Pin, 1);
-			HAL_GPIO_WritePin(OutEngB_2_GPIO_Port, OutEngB_2_Pin, 1);
-			break;
-
-		case FRONT:
-			HAL_GPIO_WritePin(OutEngB_1_GPIO_Port, OutEngB_1_Pin, 1);
-			HAL_GPIO_WritePin(OutEngB_2_GPIO_Port, OutEngB_2_Pin, 0);
-			break;
-
-		case BACK:
-			HAL_GPIO_WritePin(OutEngB_1_GPIO_Port, OutEngB_1_Pin, 0);
-			HAL_GPIO_WritePin(OutEngB_2_GPIO_Port, OutEngB_2_Pin, 1);
-			break;
-
-		case FREE:
-			HAL_GPIO_WritePin(OutEngB_1_GPIO_Port, OutEngB_1_Pin, 0);
-			HAL_GPIO_WritePin(OutEngB_2_GPIO_Port, OutEngB_2_Pin, 0);
-			break;
-		default:
-			break;
-		}
-
-		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, motorL.speed);
-		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, motorR.speed);
-}
-
-
-
-
 
 /* USER CODE END 0 */
 
@@ -181,8 +126,6 @@ int main(void)
 
   /* USER CODE BEGIN Init */
   CDC_Attach_Rx(&CommDatafromUSB);
-  en_InitENG(&motorL, (uint16_t)htim3.Instance->ARR); /*!< asigno a cada motor una direccio de memoria para manejarlo desde la lib */
-  en_InitENG(&motorR, (uint16_t)htim3.Instance->ARR); /*!< En donde uint16_t(htim3.Instance->ARR) es el valor maximo de PWM */
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -204,6 +147,8 @@ int main(void)
   HAL_TIM_Base_Start_IT(&htim3);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+  en_InitENG(&motorL, &MotorL_SetPWM, &MotorL_SetPIN, htim3.Instance->ARR); /*!< asigno a cada motor una direccio de memoria para manejarlo desde la lib */
+  en_InitENG(&motorR, &MotorR_SetPWM, &MotorR_SetPIN, htim3.Instance->ARR); /*!< En donde, (htim3.Instance->ARR) es el valor maximo de PWM */
 
   IS10MS = FALSE;
   datosComSerie.Rx.indexRead = 0;
@@ -217,7 +162,7 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-	 Engines_task();
+
     /* USER CODE BEGIN 3 */
 	  CommComunicationsTask(&datosComSerie);
 
@@ -230,6 +175,8 @@ int main(void)
 			  if(time10ms == 10){
 				  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 				  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&sensorIR.bufferADCvalue, NUM_CHANNELS_ADC);
+				  en_HandlerENG(&motorR, -30000, 0);
+				  en_HandlerENG(&motorL, -30000, 0);
 				  time10ms = 0;
 
 			  }
@@ -491,7 +438,7 @@ static void MX_TIM3_Init(void)
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
   sConfigOC.Pulse = 0;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_LOW;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
   {
@@ -576,7 +523,64 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void MotorL_SetPIN(_eEngState estado){
+	switch(motorL.estado){
+		case BRAKE:
+			HAL_GPIO_WritePin(OutEngA_1_GPIO_Port, OutEngA_1_Pin, 1);
+			HAL_GPIO_WritePin(OutEngA_2_GPIO_Port, OutEngA_2_Pin, 1);
+			break;
 
+		case FRONT:
+			HAL_GPIO_WritePin(OutEngA_1_GPIO_Port, OutEngA_1_Pin, 1);
+			HAL_GPIO_WritePin(OutEngA_2_GPIO_Port, OutEngA_2_Pin, 0);
+			break;
+
+		case BACK:
+			HAL_GPIO_WritePin(OutEngA_1_GPIO_Port, OutEngA_1_Pin, 0);
+			HAL_GPIO_WritePin(OutEngA_2_GPIO_Port, OutEngA_2_Pin, 1);
+			break;
+
+		case FREE:
+			HAL_GPIO_WritePin(OutEngA_1_GPIO_Port, OutEngA_1_Pin, 0);
+			HAL_GPIO_WritePin(OutEngA_2_GPIO_Port, OutEngA_2_Pin, 0);
+			break;
+		default:
+			break;
+	}
+}
+void MotorR_SetPIN(_eEngState estado){
+	switch(motorR.estado){
+		case BRAKE:
+			HAL_GPIO_WritePin(OutEngB_1_GPIO_Port, OutEngB_1_Pin, 1);
+			HAL_GPIO_WritePin(OutEngB_2_GPIO_Port, OutEngB_2_Pin, 1);
+			break;
+
+		case FRONT:
+			HAL_GPIO_WritePin(OutEngB_1_GPIO_Port, OutEngB_1_Pin, 1);
+			HAL_GPIO_WritePin(OutEngB_2_GPIO_Port, OutEngB_2_Pin, 0);
+			break;
+
+		case BACK:
+			HAL_GPIO_WritePin(OutEngB_1_GPIO_Port, OutEngB_1_Pin, 0);
+			HAL_GPIO_WritePin(OutEngB_2_GPIO_Port, OutEngB_2_Pin, 1);
+			break;
+
+		case FREE:
+			HAL_GPIO_WritePin(OutEngB_1_GPIO_Port, OutEngB_1_Pin, 0);
+			HAL_GPIO_WritePin(OutEngB_2_GPIO_Port, OutEngB_2_Pin, 0);
+			break;
+		default:
+			break;
+	}
+}
+
+void MotorL_SetPWM(uint16_t dCycle){
+	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, dCycle);
+}
+
+void MotorR_SetPWM(uint16_t dCycle){
+	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, dCycle);
+}
 /* USER CODE END 4 */
 
 /**

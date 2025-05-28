@@ -18,12 +18,14 @@ typedef enum{
 }_eEngState;
 
 typedef struct{
-	uint16_t speed;
 	_eEngState estado;
-	uint16_t maxSpeed;
+	int32_t    speed;
+	uint32_t   maxSpeed;
+	void (*setPins)(_eEngState state);
+	void (*setPWM)(uint16_t dCycle);
 }_sEng;
 
-void en_InitENG(_sEng *engines,uint16_t maxSpeed);
+void en_InitENG(_sEng *engines,void (*PWM_set)(uint16_t dCycle), void(*PIN_set)(_eEngState state), uint16_t max_Speed);
 void en_HandlerENG(_sEng *engines,int32_t newspeed,uint8_t freno);
 
 

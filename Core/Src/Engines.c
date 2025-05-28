@@ -11,36 +11,46 @@
 _sEng engine;
 
 
-void en_InitENG(_sEng *engines,uint16_t maxSpeed){
+void en_InitENG(_sEng *engines,void (*PWM_set)(uint16_t dCycle), void(*PIN_set)(_eEngState state), uint16_t max_Speed){
 
-	engines->estado=FREE;
-	engines->speed=0;
-	engines->maxSpeed=maxSpeed;
+	engines->estado  = FREE;
+	engines->setPins = PIN_set;
+	engines->setPWM  = PWM_set;
+	engines->speed	 = 0;
+	engines->maxSpeed= max_Speed;
 
 }
 
-void en_HandlerENG(_sEng *engines,int32_t newspeed,uint8_t freno){
+void en_HandlerENG(_sEng *engines, int32_t newspeed, uint8_t freno){
 
-	if(newspeed==engines->speed)
+	if(engines->setPins == NULL || engines->setPWM == NULL)
 		return;
 
-	if(freno==1){
-		engines->estado=BRAKE;
+	if(newspeed == engines->speed)
+		return;
+
+	if(freno == 1){
+		engines->estado = BRAKE;
 		return;
 	}
-	if(newspeed>engines->maxSpeed)
-		newspeed=engines->maxSpeed;
 
-	//agregar el caso anterior para negativo
-	if(newspeed<0){
-		engines->estado=BACK;
-		engines->speed= -1 * (newspeed);
-	}else if(newspeed>0){
-		engines->estado=FRONT;
-		engines->speed=newspeed;
+	if(newspeed > engines->maxSpeed)
+		newspeed = engines->maxSpeed;
+
+	engines->speed = newspeed;
+
+	if(newspeed < 0){
+		engines->estado = BACK;
+		engines->setPins(BACK);
+		engines->setPWM((int16_t)(engines->speed*-1));
+	}else if(newspeed > 0){
+		engines->estado = FRONT;
+		engines->setPins(FRONT);
+		engines->setPWM((int16_t)engines->speed);
 	}else if(newspeed==0){
-		engines->estado=FREE;
-		engines->speed=0;
+		engines->estado = FREE;
+		engines->setPins(FREE);
+		engines->setPWM(0);
 	}
 
 }
