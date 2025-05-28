@@ -1,5 +1,5 @@
-../Core/Src/UNERprotocol.c:19:6:CommDatafromUSB	2
-../Core/Src/UNERprotocol.c:30:6:CommComunicationsTask	2
-../Core/Src/UNERprotocol.c:53:6:CommDecodeHeader	17
-../Core/Src/UNERprotocol.c:130:6:CommDecodeData	5
-../Core/Src/UNERprotocol.c:169:6:CommSendInfo	3
+../Core/Src/UNERprotocol.c:17:6:CommInitProtocol	1
+../Core/Src/UNERprotocol.c:32:6:CommDatafromUSB	2
+../Core/Src/UNERprotocol.c:49:6:CommDecodeHeader	17
+../Core/Src/UNERprotocol.c:129:6:CommDecodeData	5
+../Core/Src/UNERprotocol.c:166:6:CommSendInfo	3

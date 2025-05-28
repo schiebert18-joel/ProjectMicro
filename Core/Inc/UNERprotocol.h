@@ -11,7 +11,7 @@
 typedef struct{
 	uint8_t indexWrite;			//!< Indice de escritura del buffer circular
 	uint8_t indexRead;		 	//!< Indice de lectura del buffer circular
-	uint8_t buffercomm[256]; 	//!< Buffer circular
+	uint8_t *buffercomm; 	//!< Buffer circular
 }_sBus;
 
 typedef struct ComStruct{
@@ -20,7 +20,6 @@ typedef struct ComStruct{
     uint8_t cheksumRx;       //!< Cheksumm RX
     _sBus	Tx;
     _sBus	Rx;
-    uint8_t bufferTx[256];   //!< Buffer circular de transmisión
     uint8_t bytesTosend;	 //!< Cuantos bytes voy a trasnmitir
 }_sDato;
 
@@ -52,14 +51,13 @@ typedef enum Comands{
     UNKNOWNCOMANND=0xFF
 }_eEstadoMEFcmd;
 
-extern _sDato datosComSerie;
-extern _eProtocolo estadoProtocolo;
 
-void CommDatafromUSB(uint8_t *buf, uint16_t length);	/*!< recibo la informacion enviada por puerto USB (lo enviado por QT), y guardo los bytes recibidos en el buffer circular bufferRx[] de la estructura datosComSerie */
-void CommComunicationsTask(_sDato *datosCom);			/*!< Verifico si llegó informacion */
-void CommDecodeHeader(_sDato *datosCom); 				/*!< Recibo un puntero a la estructura de comunicación que contiene los buffers y los índices */
-void CommDecodeData(_sDato *datosCom);					/*!< responde segun el ID recibido. Busca el ID del comando en la tercera posición del payload (después del token y del byte de longitud) */
-void CommSendInfo(uint8_t bufferAux[], uint8_t bytes); 	/*!< calculo y envio el checksum */
+void CommInitProtocol(_sDato *datosCom,uint8_t ringbuff);/*!<  */
+void CommDatafromUSB(uint8_t *buf, uint16_t length);	 /*!< recibo la informacion enviada por puerto USB (lo enviado por QT), y guardo los bytes recibidos en el buffer circular bufferRx[] de la estructura datosComSerie */
+void CommComunicationsTask(_sDato *datosCom);			 /*!< Verifico si llegó informacion */
+void CommDecodeHeader(_sDato *datosComLib); 			 /*!< Recibo un puntero a la estructura de comunicación que contiene los buffers y los índices */
+void CommDecodeData(_sDato *datosComLib);				 /*!< responde segun el ID recibido. Busca el ID del comando en la tercera posición del payload (después del token y del byte de longitud) */
+void CommSendInfo(uint8_t bufferAux[], uint8_t bytes); 	 /*!< calculo y envio el checksum */
 
 
 

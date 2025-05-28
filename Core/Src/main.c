@@ -38,6 +38,7 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define NUM_CHANNELS_ADC 8
+#define RINGBUFFER 256
 #define IS10MS myFlags.individualFlags.bit1
 /* USER CODE END PD */
 
@@ -50,13 +51,16 @@
 ADC_HandleTypeDef hadc1;
 DMA_HandleTypeDef hdma_adc1;
 
+I2C_HandleTypeDef hi2c1;
+DMA_HandleTypeDef hdma_i2c1_rx;
+DMA_HandleTypeDef hdma_i2c1_tx;
+
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim3;
 
 /* USER CODE BEGIN PV */
 _bFlags myFlags;
 _sDato datosComSerie;
-_eProtocolo estadoProtocolo;
 _sIrSensor sensorIR;
 _sEng motorL,motorR;
 _eEngState estado;
@@ -70,6 +74,7 @@ static void MX_DMA_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_TIM3_Init(void);
+static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
 uint8_t CDC_Transmit_FS(uint8_t *buf, uint16_t len);
 void CDC_Attach_Rx(void(*PtRx)(uint8_t *buf, uint16_t len)); //buf contiene los bytes recibidos, y len cuantos bytes llegaron
@@ -126,6 +131,7 @@ int main(void)
 
   /* USER CODE BEGIN Init */
   CDC_Attach_Rx(&CommDatafromUSB);
+  CommInitProtocol(&datosComSerie,(uint8_t) RINGBUFFER);
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -142,6 +148,7 @@ int main(void)
   MX_USB_DEVICE_Init();
   MX_ADC1_Init();
   MX_TIM3_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start_IT(&htim1);
   HAL_TIM_Base_Start_IT(&htim3);
@@ -347,6 +354,40 @@ static void MX_ADC1_Init(void)
 }
 
 /**
+  * @brief I2C1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C1_Init(void)
+{
+
+  /* USER CODE BEGIN I2C1_Init 0 */
+
+  /* USER CODE END I2C1_Init 0 */
+
+  /* USER CODE BEGIN I2C1_Init 1 */
+
+  /* USER CODE END I2C1_Init 1 */
+  hi2c1.Instance = I2C1;
+  hi2c1.Init.ClockSpeed = 400000;
+  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
+  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c1.Init.OwnAddress2 = 0;
+  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C1_Init 2 */
+
+  /* USER CODE END I2C1_Init 2 */
+
+}
+
+/**
   * @brief TIM1 Initialization Function
   * @param None
   * @retval None
@@ -463,8 +504,15 @@ static void MX_DMA_Init(void)
 
   /* DMA controller clock enable */
   __HAL_RCC_DMA2_CLK_ENABLE();
+  __HAL_RCC_DMA1_CLK_ENABLE();
 
   /* DMA interrupt init */
+  /* DMA1_Stream0_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream0_IRQn);
+  /* DMA1_Stream1_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream1_IRQn);
   /* DMA2_Stream0_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
@@ -523,6 +571,25 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void CommComunicationsTask(_sDato *datosCom){ 			/*!< si llegó informacion entonces llamo a decodeheader para el analisis del protocolo "UNER" */
+	if(datosCom->Rx.indexRead!=datosCom->Rx.indexWrite ){	/*!< si Recepcion write =! Recepcion read => buffer lleno */
+		CommDecodeHeader(datosCom);
+		datosCom->Rx.indexRead=datosCom->Rx.indexWrite;
+	}
+
+	if(datosCom->Tx.indexRead!=datosCom->Tx.indexWrite ){
+		if(datosCom->Tx.indexWrite > datosCom->Tx.indexRead){
+				datosCom->bytesTosend = datosCom->Tx.indexWrite - datosCom->Tx.indexRead;
+		}else{
+			datosCom->bytesTosend =  sizeof(datosCom->Rx.buffercomm) - datosCom->Tx.indexRead;
+		}
+		if(CDC_Transmit_FS(&datosCom->Tx.buffercomm[datosCom->Tx.indexRead], datosCom->bytesTosend) == USBD_OK){ /*!< Paquete enviado hacia QT: 55 4E 45 52   01 	 3A     F0         0D          C8
+							 																												    'U''N''E''R''Nbytes'':''ID:Alive''Payload: ACK''Cheksum'*/
+			datosCom->Tx.indexRead += datosCom->bytesTosend;
+		}
+	}
+}
+
 void MotorL_SetPIN(_eEngState estado){
 	switch(motorL.estado){
 		case BRAKE:
