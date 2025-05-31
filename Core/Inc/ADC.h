@@ -18,10 +18,8 @@
  * @param whiteValue:   Valor que corresponde a valores white
  */
 typedef struct{
-	uint16_t bufferADCvalue[NUM_CHANNELS_ADC];
-	uint16_t currentValue;
-	uint16_t blackValue;
-	uint16_t whiteValue;
+	volatile uint16_t bufferADCvalue[NUM_CHANNELS_ADC]; /*!< Es volatile porque lo llena el DMA */
+	uint16_t currentValue[NUM_CHANNELS_ADC];
 }_sIrSensor;
 
 

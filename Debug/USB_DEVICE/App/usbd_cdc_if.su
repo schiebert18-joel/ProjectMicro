@@ -4,4 +4,4 @@
 ../USB_DEVICE/App/usbd_cdc_if.c:277:15:CDC_Receive_FS	16	static
 ../USB_DEVICE/App/usbd_cdc_if.c:300:9:CDC_Transmit_FS	24	static
 ../USB_DEVICE/App/usbd_cdc_if.c:326:15:CDC_TransmitCplt_FS	32	static
-../USB_DEVICE/App/usbd_cdc_if.c:338:6:CDC_Attach_Rx	16	static
+../USB_DEVICE/App/usbd_cdc_if.c:344:6:CDC_Attach_Rx	16	static

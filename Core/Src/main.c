@@ -38,8 +38,11 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define NUM_CHANNELS_ADC 8
-#define RINGBUFFER 256
-#define IS10MS myFlags.individualFlags.bit1
+#define RINGBUFFER_Tx 	256
+#define RINGBUFFER_Rx 	256
+
+#define IS250US 		myFlags.individualFlags.bit1
+#define ADCready		myFlags.individualFlags.bit2
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -60,11 +63,14 @@ TIM_HandleTypeDef htim3;
 
 /* USER CODE BEGIN PV */
 _bFlags myFlags;
+_work w;
 _sDato datosComSerie;
 _sIrSensor sensorIR;
 _sEng motorL,motorR;
 _eEngState estado;
 
+uint8_t commBufferRx[RINGBUFFER_Tx];
+uint8_t commBufferTx[RINGBUFFER_Rx];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -76,8 +82,7 @@ static void MX_ADC1_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
-uint8_t CDC_Transmit_FS(uint8_t *buf, uint16_t len);
-void CDC_Attach_Rx(void(*PtRx)(uint8_t *buf, uint16_t len)); //buf contiene los bytes recibidos, y len cuantos bytes llegaron
+//void CDC_Attach_Rx(void(*PtRx)(uint8_t *buf, uint16_t len));
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc);
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim);
 void MotorL_SetPWM(uint16_t dCycle);
@@ -90,25 +95,24 @@ void MotorR_SetPIN(_eEngState estado);
 /* USER CODE BEGIN 0 */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 	if(htim -> Instance == TIM1){
-		IS10MS = TRUE;
+		IS250US = TRUE;
 	}
 
 }
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
+//	char usbMsg[128];
 
-		if (hadc->Instance == ADC1){
-//			sensorIR[0].currentValue = adcBuffer[0];
+	  if (hadc->Instance == ADC1) {
+//			for (uint8_t i = 0; i < NUM_CHANNELS_ADC; i++) {
+//				sensorIR.currentValue[i] = sensorIR.bufferADCvalue[i];
+//			}
+//			ADCready = TRUE;
 		}
-
-	//	char usbMsg[128];
-	//	sprintf(usbMsg,
-	//	        "PA0:%4u PA1:%4u PA2:%4u PA3:%4u PA4:%4u PA5:%4u PA6:%4u PA7:%4u\r\n",
-	//			adcBuffer[0], adcBuffer[1], adcBuffer[2], adcBuffer[3],
-	//			adcBuffer[4], adcBuffer[5], adcBuffer[6], adcBuffer[7]);
-	//
-	//
-	//	CDC_Transmit_FS((uint8_t*)usbMsg, strlen(usbMsg));
+//		sprintf(usbMsg,
+//		"PA0:%4u \r\n",
+//		sensorIR.bufferADCvalue[0]);
+//		CDC_Transmit_FS((uint8_t*)usbMsg, strlen(usbMsg));
 }
 
 
@@ -131,7 +135,7 @@ int main(void)
 
   /* USER CODE BEGIN Init */
   CDC_Attach_Rx(&CommDatafromUSB);
-  CommInitProtocol(&datosComSerie,(uint8_t) RINGBUFFER);
+  CommInitProtocol(&datosComSerie, &CommDecodeData, commBufferRx, commBufferTx);
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -152,12 +156,14 @@ int main(void)
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start_IT(&htim1);
   HAL_TIM_Base_Start_IT(&htim3);
+  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&sensorIR.bufferADCvalue, NUM_CHANNELS_ADC);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
   en_InitENG(&motorL, &MotorL_SetPWM, &MotorL_SetPIN, htim3.Instance->ARR); /*!< asigno a cada motor una direccio de memoria para manejarlo desde la lib */
   en_InitENG(&motorR, &MotorR_SetPWM, &MotorR_SetPIN, htim3.Instance->ARR); /*!< En donde, (htim3.Instance->ARR) es el valor maximo de PWM */
 
-  IS10MS = FALSE;
+  IS250US = FALSE;
+  ADCready = FALSE;
   datosComSerie.Rx.indexRead = 0;
   datosComSerie.Rx.indexWrite =0;
   myFlags.allFlags = 0;
@@ -173,13 +179,13 @@ int main(void)
     /* USER CODE BEGIN 3 */
 	  CommComunicationsTask(&datosComSerie);
 
-	  if(IS10MS){
+	  if(IS250US){
 		  time250us++;
-		  IS10MS =! IS10MS;
+		  IS250US =! IS250US;
 		  if(time250us >= 40){
 			  time10ms++;
 			  time250us = 0;
-			  if(time10ms == 10){
+			  if(time10ms == 100){
 				  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 				  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&sensorIR.bufferADCvalue, NUM_CHANNELS_ADC);
 				  en_HandlerENG(&motorR, -30000, 0);
@@ -189,6 +195,12 @@ int main(void)
 			  }
 		  }
 	  }
+
+//	  if(ADCready){
+//		  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&sensorIR.bufferADCvalue, NUM_CHANNELS_ADC);
+//		  ADCready = FALSE;
+//	  }
+
   }
   /* USER CODE END 3 */
 }
@@ -571,8 +583,32 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void CommComunicationsTask(_sDato *datosCom){ 			/*!< si llegó informacion entonces llamo a decodeheader para el analisis del protocolo "UNER" */
-	if(datosCom->Rx.indexRead!=datosCom->Rx.indexWrite ){	/*!< si Recepcion write =! Recepcion read => buffer lleno */
+
+/**
+ * @brief: 	recibo la informacion enviada por puerto USB (lo enviado por QT), y guardo los bytes recibidos
+ *  		en el buffer circular Rx.buffercomm[] de la estructura datosComSerie. Es decir:
+ * 			UNER = 55 4E 45 52 // Nbytes= 02 // ':' = 3A // Alive= F0 // 0xC4 = checksum
+ *
+ * @param: *buf, el buffer que posee la informacion para recibirla en el buffer de recepcion
+ * @param: length, largo del buffer
+ */
+void CommDatafromUSB(uint8_t *buf, uint16_t length){
+
+  uint16_t i;
+
+  for (i = 0; i < length; i++) {
+	  datosComSerie.Rx.buffercomm[datosComSerie.Rx.indexWrite] = buf[i];
+	  datosComSerie.Rx.indexWrite++;
+  }
+
+}
+
+/**
+ * @brief: si llegó informacion (CommDatafromUSB) entonces llamo a decodeheader para el analisis del protocolo "UNER"
+ *
+ */
+void CommComunicationsTask(_sDato *datosCom){
+	if(datosCom->Rx.indexRead!=datosCom->Rx.indexWrite ){ /*!< si Recepcion write =! Recepcion read => buffer lleno */
 		CommDecodeHeader(datosCom);
 		datosCom->Rx.indexRead=datosCom->Rx.indexWrite;
 	}
@@ -590,6 +626,54 @@ void CommComunicationsTask(_sDato *datosCom){ 			/*!< si llegó informacion ento
 	}
 }
 
+/**
+ * @brief Si el protocolo fue aceptado (CommDecodeHeader), entonces preparo la respuesta segun el ID recibido.
+ *
+ */
+void CommDecodeData(_sDato *datosComLib){
+    uint8_t bufAux[20], indiceAux=0,bytes=0;
+
+    switch (datosComLib->Rx.buffercomm[datosComLib->indexStart+2])/*!< ID EN LA POSICION 2, porque es donde se adjunta el byte que te dice "ALIVE, FIRMWARE, ETC" */
+    {
+
+	case ALIVE:
+		bufAux[indiceAux++] = ALIVE;   	/*!< ID de respuesta */
+		bufAux[indiceAux++] = 0x0D;    	/*!< Respuesta: ACK */
+		bytes = 0x03;        			/*!< NBYTES = 3 (ID + Dato + Checksum) */
+	break;
+
+    case FIRMWARE:
+		bufAux[indiceAux++]=FIRMWARE;
+		bytes=0x02;
+    break;
+
+    break;
+
+    case IR:
+        bufAux[indiceAux++] = IR;
+        w.u16[0] = sensorIR.bufferADCvalue[0];
+        bufAux[indiceAux++] = w.u8[0];  // LSB
+        bufAux[indiceAux++] = w.u8[1];  // MSB
+        bytes = 4; // 1 byte para ID, 2 bytes por canal + Cks
+
+//        for (uint8_t i = 0; i < NUM_CHANNELS_ADC; i++) {
+
+//        }
+
+	break;
+
+    default:
+        bufAux[indiceAux++]=0xFF;
+        bytes=0x02;
+    break;
+    }
+
+    CommSendInfo(datosComLib,bufAux,bytes);
+}
+
+/**
+ * @brief Seteo los pines segun el estado de los motores (Adelante, atras, freno, libre)
+ */
 void MotorL_SetPIN(_eEngState estado){
 	switch(motorL.estado){
 		case BRAKE:
@@ -641,10 +725,12 @@ void MotorR_SetPIN(_eEngState estado){
 	}
 }
 
+/**
+ * @Brief Le doy la velocidad a los motores
+ */
 void MotorL_SetPWM(uint16_t dCycle){
 	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, dCycle);
 }
-
 void MotorR_SetPWM(uint16_t dCycle){
 	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, dCycle);
 }

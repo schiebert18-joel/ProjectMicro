@@ -335,7 +335,13 @@ static int8_t CDC_TransmitCplt_FS(uint8_t *Buf, uint32_t *Len, uint8_t epnum)
 }
 
 /* USER CODE BEGIN PRIVATE_FUNCTIONS_IMPLEMENTATION */
-void CDC_Attach_Rx(void (*PtrRx)(uint8_t *buf, uint16_t Len)) //la interfaZ va a llamar cada vez que se envian datos desde el USB hacia la PC
+/**
+ * @brief la interfaZ va a llamar cada vez que se envian datos desde el USB hacia la PC
+ *
+ * @param: buf contiene los bytes recibidos
+ * @param: len cuantos bytes llegaron
+ */
+void CDC_Attach_Rx(void (*PtrRx)(uint8_t *buf, uint16_t Len))
 {
 	MyPtrRx = PtrRx;
 }

@@ -4,4 +4,4 @@
 ../USB_DEVICE/App/usbd_cdc_if.c:277:15:CDC_Receive_FS	2
 ../USB_DEVICE/App/usbd_cdc_if.c:300:9:CDC_Transmit_FS	2
 ../USB_DEVICE/App/usbd_cdc_if.c:326:15:CDC_TransmitCplt_FS	1
-../USB_DEVICE/App/usbd_cdc_if.c:338:6:CDC_Attach_Rx	1
+../USB_DEVICE/App/usbd_cdc_if.c:344:6:CDC_Attach_Rx	1
