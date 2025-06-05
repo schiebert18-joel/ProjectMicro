@@ -43,6 +43,7 @@
 
 #define IS250US 		myFlags.individualFlags.bit1
 #define ADCready		myFlags.individualFlags.bit2
+#define EnginesFlag		myFlags.individualFlags.bit3
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -126,6 +127,7 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
 	uint8_t time250us = 0, time10ms = 0;
+//	uint16_t i = 0;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -159,14 +161,32 @@ int main(void)
   HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&sensorIR.bufferADCvalue, NUM_CHANNELS_ADC);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+
+  ////////////////////////////////////////////////////////////////////////
+//  HAL_GPIO_WritePin(OutEngA_1_GPIO_Port, OutEngA_1_Pin, 1);
+//  HAL_GPIO_WritePin(OutEngA_2_GPIO_Port, OutEngA_2_Pin, 0);
+//
+//  HAL_GPIO_WritePin(OutEngB_1_GPIO_Port, OutEngB_1_Pin, 1);
+//  HAL_GPIO_WritePin(OutEngB_2_GPIO_Port, OutEngB_2_Pin, 0);
+
+//  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 0);
+//  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 30000);
+
+
+  /////////////////////////////////////////////////////////////////////////////
+
   en_InitENG(&motorL, &MotorL_SetPWM, &MotorL_SetPIN, htim3.Instance->ARR); /*!< asigno a cada motor una direccio de memoria para manejarlo desde la lib */
   en_InitENG(&motorR, &MotorR_SetPWM, &MotorR_SetPIN, htim3.Instance->ARR); /*!< En donde, (htim3.Instance->ARR) es el valor maximo de PWM */
 
   IS250US = FALSE;
   ADCready = FALSE;
+  EnginesFlag = TRUE;
   datosComSerie.Rx.indexRead = 0;
   datosComSerie.Rx.indexWrite =0;
   myFlags.allFlags = 0;
+
+//  en_HandlerENG(&motorR, 50000, 0);
+//  en_HandlerENG(&motorL, 50000, 0);
 
   /* USER CODE END 2 */
 
@@ -177,21 +197,24 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+
 	  CommComunicationsTask(&datosComSerie);
 
 	  if(IS250US){
 		  time250us++;
 		  IS250US =! IS250US;
+		  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&sensorIR.bufferADCvalue, NUM_CHANNELS_ADC);
 		  if(time250us >= 40){
 			  time10ms++;
 			  time250us = 0;
 			  if(time10ms == 100){
 				  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
-				  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&sensorIR.bufferADCvalue, NUM_CHANNELS_ADC);
-				  en_HandlerENG(&motorR, -30000, 0);
-				  en_HandlerENG(&motorL, -30000, 0);
+//				  i+= 600;
+//				  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, (i));
+//				  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, (i));
 				  time10ms = 0;
-
+//				  if(i>53000)
+//					  i=0;
 			  }
 		  }
 	  }
@@ -632,6 +655,7 @@ void CommComunicationsTask(_sDato *datosCom){
  */
 void CommDecodeData(_sDato *datosComLib){
     uint8_t bufAux[20], indiceAux=0,bytes=0;
+    uint32_t velL = 0, velR = 0;
 
     switch (datosComLib->Rx.buffercomm[datosComLib->indexStart+2])/*!< ID EN LA POSICION 2, porque es donde se adjunta el byte que te dice "ALIVE, FIRMWARE, ETC" */
     {
@@ -662,6 +686,42 @@ void CommDecodeData(_sDato *datosComLib){
 
 	break;
 
+    case MOTOR:
+
+        w.u8[0] = datosComLib->Rx.buffercomm[datosComLib->indexStart+3];
+        w.u8[1] = datosComLib->Rx.buffercomm[datosComLib->indexStart+4];
+        w.u8[2] = datosComLib->Rx.buffercomm[datosComLib->indexStart+5];
+        w.u8[3] = datosComLib->Rx.buffercomm[datosComLib->indexStart+6];
+        velL = w.i32;
+
+        w.u8[0] = datosComLib->Rx.buffercomm[datosComLib->indexStart+7];
+        w.u8[1] = datosComLib->Rx.buffercomm[datosComLib->indexStart+8];
+        w.u8[2] = datosComLib->Rx.buffercomm[datosComLib->indexStart+9];
+        w.u8[3] = datosComLib->Rx.buffercomm[datosComLib->indexStart+10];
+        velR = w.i32;
+
+        en_HandlerENG(&motorL, velL, 0);
+        en_HandlerENG(&motorR, velR, 0);
+
+        bufAux[indiceAux++] = MOTOR;
+
+//        w.i32 = velL;
+//        bufAux[indiceAux++] = w.u8[0];
+//        bufAux[indiceAux++] = w.u8[1];
+//        bufAux[indiceAux++] = w.u8[2];
+//        bufAux[indiceAux++] = w.u8[3];
+//
+//        w.i32 = velR;
+//        bufAux[indiceAux++] = w.u8[0];
+//        bufAux[indiceAux++] = w.u8[1];
+//        bufAux[indiceAux++] = w.u8[2];
+//        bufAux[indiceAux++] = w.u8[3];
+//
+//        bytes = 2 + 8; // ID + cks + velL + velR
+
+	break;
+
+
     default:
         bufAux[indiceAux++]=0xFF;
         bytes=0x02;
@@ -675,7 +735,7 @@ void CommDecodeData(_sDato *datosComLib){
  * @brief Seteo los pines segun el estado de los motores (Adelante, atras, freno, libre)
  */
 void MotorL_SetPIN(_eEngState estado){
-	switch(motorL.estado){
+	switch(estado){
 		case BRAKE:
 			HAL_GPIO_WritePin(OutEngA_1_GPIO_Port, OutEngA_1_Pin, 1);
 			HAL_GPIO_WritePin(OutEngA_2_GPIO_Port, OutEngA_2_Pin, 1);
@@ -700,7 +760,7 @@ void MotorL_SetPIN(_eEngState estado){
 	}
 }
 void MotorR_SetPIN(_eEngState estado){
-	switch(motorR.estado){
+	switch(estado){
 		case BRAKE:
 			HAL_GPIO_WritePin(OutEngB_1_GPIO_Port, OutEngB_1_Pin, 1);
 			HAL_GPIO_WritePin(OutEngB_2_GPIO_Port, OutEngB_2_Pin, 1);

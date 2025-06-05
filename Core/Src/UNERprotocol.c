@@ -30,7 +30,7 @@ void CommInitProtocol(_sDato *datosCom, void (*Comm_DecodeData)(struct ComStruct
  */
 void CommDecodeHeader(_sDato *datosCom){
 
-    static uint8_t nBytes=0;		/*!< Variable estática para recordar cuántos bytes de payload quedan por procesar */
+    static uint8_t nBytes=0;	/*!< Variable estática para recordar cuántos bytes de payload quedan por procesar */
 
     uint8_t indexWriteRxCopy = datosCom->Rx.indexWrite; /*!< Guardo una copia del índice de escritura para no interferir con interrupciones */
 
