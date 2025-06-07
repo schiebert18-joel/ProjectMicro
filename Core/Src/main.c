@@ -27,6 +27,7 @@
 #include "Utilities.h"
 #include "ADC.h"
 #include "Engines.h"
+#include "MPU6050.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -86,10 +87,15 @@ static void MX_I2C1_Init(void);
 //void CDC_Attach_Rx(void(*PtRx)(uint8_t *buf, uint16_t len));
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc);
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim);
+
+/*		MOTORES		*/
 void MotorL_SetPWM(uint16_t dCycle);
 void MotorR_SetPWM(uint16_t dCycle);
 void MotorL_SetPIN(_eEngState estado);
 void MotorR_SetPIN(_eEngState estado);
+
+/*		  MPU		*/
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -127,7 +133,7 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
 	uint8_t time250us = 0, time10ms = 0;
-//	uint16_t i = 0;
+	uint16_t i = 0;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -163,12 +169,13 @@ int main(void)
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
 
   ////////////////////////////////////////////////////////////////////////
+
 //  HAL_GPIO_WritePin(OutEngA_1_GPIO_Port, OutEngA_1_Pin, 1);
 //  HAL_GPIO_WritePin(OutEngA_2_GPIO_Port, OutEngA_2_Pin, 0);
 //
 //  HAL_GPIO_WritePin(OutEngB_1_GPIO_Port, OutEngB_1_Pin, 1);
 //  HAL_GPIO_WritePin(OutEngB_2_GPIO_Port, OutEngB_2_Pin, 0);
-
+//
 //  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 0);
 //  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 30000);
 
@@ -185,8 +192,8 @@ int main(void)
   datosComSerie.Rx.indexWrite =0;
   myFlags.allFlags = 0;
 
-//  en_HandlerENG(&motorR, 50000, 0);
-//  en_HandlerENG(&motorL, 50000, 0);
+//  en_HandlerENG(&motorR, 30000, 0);
+//  en_HandlerENG(&motorL, 0, 0);
 
   /* USER CODE END 2 */
 
@@ -209,12 +216,12 @@ int main(void)
 			  time250us = 0;
 			  if(time10ms == 100){
 				  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
-//				  i+= 600;
-//				  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, (i));
-//				  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, (i));
+				  i+= 600;
+//			      en_HandlerENG(&motorL, i, 0);
+//			      en_HandlerENG(&motorR, i, 0);
 				  time10ms = 0;
-//				  if(i>53000)
-//					  i=0;
+				  if(i>53000)
+					  i=0;
 			  }
 		  }
 	  }
@@ -703,8 +710,8 @@ void CommDecodeData(_sDato *datosComLib){
         en_HandlerENG(&motorL, velL, 0);
         en_HandlerENG(&motorR, velR, 0);
 
-        bufAux[indiceAux++] = MOTOR;
-
+//        bufAux[indiceAux++] = MOTOR;
+//
 //        w.i32 = velL;
 //        bufAux[indiceAux++] = w.u8[0];
 //        bufAux[indiceAux++] = w.u8[1];
@@ -735,7 +742,7 @@ void CommDecodeData(_sDato *datosComLib){
  * @brief Seteo los pines segun el estado de los motores (Adelante, atras, freno, libre)
  */
 void MotorL_SetPIN(_eEngState estado){
-	switch(estado){
+	switch(motorL.estado){
 		case BRAKE:
 			HAL_GPIO_WritePin(OutEngA_1_GPIO_Port, OutEngA_1_Pin, 1);
 			HAL_GPIO_WritePin(OutEngA_2_GPIO_Port, OutEngA_2_Pin, 1);
@@ -759,8 +766,8 @@ void MotorL_SetPIN(_eEngState estado){
 			break;
 	}
 }
-void MotorR_SetPIN(_eEngState estado){
-	switch(estado){
+   void MotorR_SetPIN(_eEngState estado){
+	switch(motorR.estado){
 		case BRAKE:
 			HAL_GPIO_WritePin(OutEngB_1_GPIO_Port, OutEngB_1_Pin, 1);
 			HAL_GPIO_WritePin(OutEngB_2_GPIO_Port, OutEngB_2_Pin, 1);
@@ -789,10 +796,51 @@ void MotorR_SetPIN(_eEngState estado){
  * @Brief Le doy la velocidad a los motores
  */
 void MotorL_SetPWM(uint16_t dCycle){
-	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, dCycle);
+	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, dCycle);
 }
 void MotorR_SetPWM(uint16_t dCycle){
-	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, dCycle);
+	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, dCycle);
+}
+
+void MPU6050_Init(I2C_HandleTypeDef *hi2c){
+    uint8_t data = 0;
+
+    HAL_I2C_Mem_Read(hi2c, MPU6050_ADDR, WHO_AM_I, MemAddSize, &data, 1, timeout_duration);
+
+    if (data == WHO_AM_I_DEFAULT_VALUE){
+        // Wake up MPU6050
+        data = 0;
+        HAL_I2C_Mem_Write(hi2c, MPU6050_ADDR, POWER_MANAGEMENT_REG, MemAddSize, &data, 1, timeout_duration);
+
+        // Set accelerometer range (+/- 2g, 4g, 8g, 16g)
+        data = 0; /*!< 2g (default) */
+        HAL_I2C_Mem_Write(hi2c, MPU6050_ADDR, ACCEL_CONFIG_REG, MemAddSize, &data, 1, timeout_duration);
+
+        // Set gyroscope range (+/- 250, 500, 1000, 2000 degree/s)
+        data = 0; /*!< 250 degree/s (default) */
+        HAL_I2C_Mem_Write(hi2c, MPU6050_ADDR, GYRO_CONFIG_REG, MemAddSize, &data, 1, timeout_duration);
+
+        // Set Digital Low Pass Filter
+		data = 4; /*!< Retraso la lectura (tardo mas en obtener datos nuevos) */
+		HAL_I2C_Mem_Write(hi2c, MPU6050_ADDR, DLPF_CONFIG_REG, MemAddSize, &data, 1, timeout_duration);
+    }
+}
+
+void MPU6050_Read_Data_DMA(I2C_HandleTypeDef *hi2c){
+	uint8_t bufData[14];
+	HAL_I2C_Mem_Read_DMA(hi2c, MPU6050_ADDR, ACCEL_XOUT_REG, MemAddSize, bufData, 14);
+}
+
+void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c){
+
+//	libraryValues.accelX	= (bufData[0] << 8) | bufData[1];
+//	libraryValues.accelY	= (bufData[2] << 8) | bufData[3];
+//	libraryValues.accelZ	= (bufData[4] << 8) | bufData[5];
+//
+//	libraryValues.gyroX		= (bufData[8] << 8) | bufData[9];
+//	libraryValues.gyroY 	= (bufData[10] << 8) | bufData[11];
+//	libraryValues.gyroZ		= (bufData[12] << 8) | bufData[13];
+
 }
 /* USER CODE END 4 */
 

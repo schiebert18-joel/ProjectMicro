@@ -5,22 +5,22 @@
  *      Author: Schiebert Joel
  */
 
-#include "usbd_cdc_if.h"
+#include "stdint.h"
 #include "UNERprotocol.h"
-#include "Utilities.h"
 #include "stdlib.h"
 
 _eProtocolo estadoProtocolo;
 
 /**
- * @brief:
+ * @brief: Inicializacion, en donde pongo el puntero a funcion y el tamaño del buffer de recepcion y transmision
  */
-void CommInitProtocol(_sDato *datosCom, void (*Comm_DecodeData)(struct ComStruct *Comm_DataStruct), uint8_t *ringbuffRx, uint8_t *ringbuffTx){
+void CommInitProtocol(_sDato *datosCom, void (*Comm_DecodeData)(struct ComStruct *Comm_DataStruct),
+		uint8_t *ringbuffRx, uint8_t *ringbuffTx){
+
 		datosCom->Rx.buffercomm = ringbuffRx;
 	    datosCom->Tx.buffercomm = ringbuffTx;
 	    datosCom->CommDecodeData =  Comm_DecodeData;
 }
-
 
 /**
  * @brief: 	Máquina de estados que decodifica la informacion y

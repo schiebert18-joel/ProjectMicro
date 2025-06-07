@@ -3,6 +3,8 @@
  *
  *  Created on: May 26, 2025
  *      Author: Schiebert Joel
+ *
+ *  Libreria diseñada para driver tb6612
  */
 
 #ifndef INC_ENGINES_H_
@@ -18,9 +20,9 @@ typedef enum{
 }_eEngState;
 
 typedef struct{
-	_eEngState estado;			/*!< Estado de direccion actual del motor */
-	int32_t    speed;			/*!< Velocidad actual del motor */
-	uint32_t   maxSpeed;		/*!< Valor maximo de velocidad permitida */
+	_eEngState 	estado;			/*!< Estado de direccion actual del motor */
+	int32_t    	speed;			/*!< Velocidad actual del motor */
+	int32_t   	maxSpeed;		/*!< Valor maximo de velocidad permitida */
 	void (*setPins)(_eEngState state); 	/*!< Puntero a función para establecer la dirección del motor */
 	void (*setPWM)(uint16_t dCycle);	/*!< Puntero a función para establecer el ciclo de trabajo del PWM */
 }_sEng;
