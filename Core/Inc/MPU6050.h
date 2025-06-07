@@ -14,25 +14,28 @@
 #define MPU6050_ADDR 0xD0 // 0x68 << 1
 
 // MPU6050 registers
-#define WHO_AM_I 				0x75
-#define DLPF_CONFIG_REG			0x1A
-#define POWER_MANAGEMENT_REG 	0x6B
-#define GYRO_CONFIG_REG 		0x1B
-#define GYRO_XOUT_REG 			0x43
-#define ACCEL_CONFIG_REG 		0x1C
+#define WHO_AM_I 				0x75 	/*!<	Identificación del sensor							*/
+#define DLPF_CONFIG_REG			0x1A	/*!<	Configura el divisor de la frecuencia de muestreo	*/
+#define POWER_MANAGEMENT_REG 	0x6B	/*!< 	Control de energía									*/
+#define GYRO_CONFIG_REG 		0x1B	/*!< 	Configura el rango del giroscopio					*/
+#define ACCEL_CONFIG_REG 		0x1C	/*!< 	Configura el rango del acelerómetro					*/
 #define ACCEL_XOUT_REG 			0x3B
+#define GYRO_XOUT_REG 			0x43
+
 
 // Default Values
 #define WHO_AM_I_DEFAULT_VALUE 	0x68
 
+#define ACCEL_SCALE_FACTOR 		16384
+#define GYRO_SCALE_FACTOR 		131
 #define timeout_duration 		10
 #define MemAddSize				1
 
 typedef struct{
-	uint16_t accel;
-	uint16_t gyro;
-	uint16_t offsetAccel;
-	uint16_t offsetGyro;
+	int16_t accel;
+	int16_t gyro;
+	int16_t offsetAccel;
+	int16_t offsetGyro;
 
 	int32_t rawYaw;
 	int16_t yaw; 		/*!< Rotacion (en °) respecto al eje Z */
@@ -42,6 +45,8 @@ typedef struct{
 	_sMPUData x;
 	_sMPUData y;
 	_sMPUData z;
+
+	uint8_t bufData[14];
 }_sMPUxyz;
 
 

@@ -69,7 +69,8 @@ _work w;
 _sDato datosComSerie;
 _sIrSensor sensorIR;
 _sEng motorL,motorR;
-_eEngState estado;
+_eEngState estado; /*!< Creo que lo puedo borrar*/
+_sMPUxyz DatosMPU;
 
 uint8_t commBufferRx[RINGBUFFER_Tx];
 uint8_t commBufferTx[RINGBUFFER_Rx];
@@ -84,9 +85,10 @@ static void MX_ADC1_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
-//void CDC_Attach_Rx(void(*PtRx)(uint8_t *buf, uint16_t len));
+
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc);
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim);
+void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c);
 
 /*		MOTORES		*/
 void MotorL_SetPWM(uint16_t dCycle);
@@ -122,6 +124,20 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
 //		CDC_Transmit_FS((uint8_t*)usbMsg, strlen(usbMsg));
 }
 
+void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c){
+
+	DatosMPU.x.accel = (DatosMPU.bufData[0] << 8) | DatosMPU.bufData[1];
+	DatosMPU.y.accel = (DatosMPU.bufData[2] << 8) | DatosMPU.bufData[3];
+	DatosMPU.z.accel = (DatosMPU.bufData[4] << 8) | DatosMPU.bufData[5];
+
+//	DatosMPU.temperature = (bufData[6] << 8) | bufData[7];
+
+	DatosMPU.x.gyro = (DatosMPU.bufData[8] << 8) | DatosMPU.bufData[9];
+	DatosMPU.y.gyro = (DatosMPU.bufData[10] << 8) | DatosMPU.bufData[11];
+	DatosMPU.z.gyro = (DatosMPU.bufData[12] << 8) | DatosMPU.bufData[13];
+
+}
+
 
 /* USER CODE END 0 */
 
@@ -133,7 +149,6 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
 	uint8_t time250us = 0, time10ms = 0;
-	uint16_t i = 0;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -168,20 +183,6 @@ int main(void)
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
 
-  ////////////////////////////////////////////////////////////////////////
-
-//  HAL_GPIO_WritePin(OutEngA_1_GPIO_Port, OutEngA_1_Pin, 1);
-//  HAL_GPIO_WritePin(OutEngA_2_GPIO_Port, OutEngA_2_Pin, 0);
-//
-//  HAL_GPIO_WritePin(OutEngB_1_GPIO_Port, OutEngB_1_Pin, 1);
-//  HAL_GPIO_WritePin(OutEngB_2_GPIO_Port, OutEngB_2_Pin, 0);
-//
-//  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 0);
-//  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 30000);
-
-
-  /////////////////////////////////////////////////////////////////////////////
-
   en_InitENG(&motorL, &MotorL_SetPWM, &MotorL_SetPIN, htim3.Instance->ARR); /*!< asigno a cada motor una direccio de memoria para manejarlo desde la lib */
   en_InitENG(&motorR, &MotorR_SetPWM, &MotorR_SetPIN, htim3.Instance->ARR); /*!< En donde, (htim3.Instance->ARR) es el valor maximo de PWM */
 
@@ -191,9 +192,6 @@ int main(void)
   datosComSerie.Rx.indexRead = 0;
   datosComSerie.Rx.indexWrite =0;
   myFlags.allFlags = 0;
-
-//  en_HandlerENG(&motorR, 30000, 0);
-//  en_HandlerENG(&motorL, 0, 0);
 
   /* USER CODE END 2 */
 
@@ -210,18 +208,14 @@ int main(void)
 	  if(IS250US){
 		  time250us++;
 		  IS250US =! IS250US;
-		  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&sensorIR.bufferADCvalue, NUM_CHANNELS_ADC);
+//		  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&sensorIR.bufferADCvalue, NUM_CHANNELS_ADC);
 		  if(time250us >= 40){
+			  HAL_I2C_Mem_Read_DMA(&hi2c1, MPU6050_ADDR, ACCEL_XOUT_REG, MemAddSize, (uint8_t*)&DatosMPU.bufData, 14);
 			  time10ms++;
 			  time250us = 0;
-			  if(time10ms == 100){
+			  if(time10ms == 10){
 				  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
-				  i+= 600;
-//			      en_HandlerENG(&motorL, i, 0);
-//			      en_HandlerENG(&motorR, i, 0);
 				  time10ms = 0;
-				  if(i>53000)
-					  i=0;
 			  }
 		  }
 	  }
@@ -728,6 +722,39 @@ void CommDecodeData(_sDato *datosComLib){
 
 	break;
 
+    case MPUData:
+    	bufAux[indiceAux++] = MPUData;
+    	// Aceleracion
+    	w.i16[0] = DatosMPU.x.accel;
+    	bufAux[indiceAux++] = w.u8[0];
+    	bufAux[indiceAux++] = w.u8[1];
+
+    	w.i16[0] = DatosMPU.y.accel;
+    	bufAux[indiceAux++] = w.u8[0];
+    	bufAux[indiceAux++] = w.u8[1];
+
+    	w.i16[0] = DatosMPU.z.accel;
+    	bufAux[indiceAux++] = w.u8[0];
+    	bufAux[indiceAux++] = w.u8[1];
+
+    	// Giroscopio
+    	w.i16[0] = DatosMPU.x.gyro;
+    	bufAux[indiceAux++] = w.u8[0];
+    	bufAux[indiceAux++] = w.u8[1];
+
+    	w.i16[0] = DatosMPU.y.gyro;
+    	bufAux[indiceAux++] = w.u8[0];
+    	bufAux[indiceAux++] = w.u8[1];
+
+    	w.i16[0] = DatosMPU.z.gyro;
+    	bufAux[indiceAux++] = w.u8[0];
+    	bufAux[indiceAux++] = w.u8[1];
+
+    	bytes = 14;
+
+
+    break;
+
 
     default:
         bufAux[indiceAux++]=0xFF;
@@ -766,7 +793,7 @@ void MotorL_SetPIN(_eEngState estado){
 			break;
 	}
 }
-   void MotorR_SetPIN(_eEngState estado){
+void MotorR_SetPIN(_eEngState estado){
 	switch(motorR.estado){
 		case BRAKE:
 			HAL_GPIO_WritePin(OutEngB_1_GPIO_Port, OutEngB_1_Pin, 1);
@@ -802,17 +829,19 @@ void MotorR_SetPWM(uint16_t dCycle){
 	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, dCycle);
 }
 
+/**
+ * @brief Inicializo el MPU. Lo despierto y configuro el giroscopio y el acelerómetro mediante el tercer parametro (MemAddress).
+ */
 void MPU6050_Init(I2C_HandleTypeDef *hi2c){
     uint8_t data = 0;
 
     HAL_I2C_Mem_Read(hi2c, MPU6050_ADDR, WHO_AM_I, MemAddSize, &data, 1, timeout_duration);
-
     if (data == WHO_AM_I_DEFAULT_VALUE){
         // Wake up MPU6050
         data = 0;
         HAL_I2C_Mem_Write(hi2c, MPU6050_ADDR, POWER_MANAGEMENT_REG, MemAddSize, &data, 1, timeout_duration);
 
-        // Set accelerometer range (+/- 2g, 4g, 8g, 16g)
+        // Set accelerometer range (+/- 2g = 0, 4g = 01, 8g = 10, 16g = 11)
         data = 0; /*!< 2g (default) */
         HAL_I2C_Mem_Write(hi2c, MPU6050_ADDR, ACCEL_CONFIG_REG, MemAddSize, &data, 1, timeout_duration);
 
@@ -821,27 +850,11 @@ void MPU6050_Init(I2C_HandleTypeDef *hi2c){
         HAL_I2C_Mem_Write(hi2c, MPU6050_ADDR, GYRO_CONFIG_REG, MemAddSize, &data, 1, timeout_duration);
 
         // Set Digital Low Pass Filter
-		data = 4; /*!< Retraso la lectura (tardo mas en obtener datos nuevos) */
+		data = 4; /*! Frecuencia de muestreo: 1kHz / 1+4 = 200hZ -> Retardo de 8.5 ms */
 		HAL_I2C_Mem_Write(hi2c, MPU6050_ADDR, DLPF_CONFIG_REG, MemAddSize, &data, 1, timeout_duration);
     }
 }
 
-void MPU6050_Read_Data_DMA(I2C_HandleTypeDef *hi2c){
-	uint8_t bufData[14];
-	HAL_I2C_Mem_Read_DMA(hi2c, MPU6050_ADDR, ACCEL_XOUT_REG, MemAddSize, bufData, 14);
-}
-
-void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c){
-
-//	libraryValues.accelX	= (bufData[0] << 8) | bufData[1];
-//	libraryValues.accelY	= (bufData[2] << 8) | bufData[3];
-//	libraryValues.accelZ	= (bufData[4] << 8) | bufData[5];
-//
-//	libraryValues.gyroX		= (bufData[8] << 8) | bufData[9];
-//	libraryValues.gyroY 	= (bufData[10] << 8) | bufData[11];
-//	libraryValues.gyroZ		= (bufData[12] << 8) | bufData[13];
-
-}
 /* USER CODE END 4 */
 
 /**

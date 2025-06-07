@@ -39,6 +39,7 @@ typedef enum Comands{
     FIRMWARE=0xF1,
     IR=0xA0,
 	MOTOR=0xA1,
+	MPUData = 0xA2,
 //    LEDS=0x10,
 //    PULSADORES=0x12,
 //    SERVO=0xA2,
