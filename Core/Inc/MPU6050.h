@@ -50,5 +50,4 @@ typedef struct{
 }_sMPUxyz;
 
 
-
 #endif /* INC_MPU6050_H_ */

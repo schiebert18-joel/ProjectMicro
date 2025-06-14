@@ -9,17 +9,11 @@
 #define INC_ADC_H_
 
 
-#define NUM_CHANNELS_ADC 8
+#define NUM_CHANNELS_ADC 9
 
-/**
- * @brief estructura de datos para los sensores IR
- * @param currentValue: donde guardo los valores presentes
- * @param blackValue:   valor que corresponde a linea negra
- * @param whiteValue:   Valor que corresponde a valores white
- */
 typedef struct{
-	volatile uint32_t bufferADCvalue[NUM_CHANNELS_ADC]; /*!< Es volatile porque lo llena el DMA */
-	uint16_t currentValue[NUM_CHANNELS_ADC];
+	uint16_t bufferADCvalue[NUM_CHANNELS_ADC];	/*! donde guardo los valores dados por el DMA*/
+	uint16_t currentValue[NUM_CHANNELS_ADC];	/*! Guardo los valores en currentValue para transmitir a QT */
 }_sIrSensor;
 
 

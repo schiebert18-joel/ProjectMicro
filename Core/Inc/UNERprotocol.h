@@ -61,7 +61,7 @@ void CommComunicationsTask(_sDato *datosCom);			/*!< Verifico si llegó informac
 void CommDecodeHeader(_sDato *datosCom); 			 	/*!< Recibo un puntero a la estructura de comunicación que contiene los buffers y los índices */
 void CommDecodeData(_sDato *datosCom);				 	/*!< responde segun el ID recibido. Busca el ID del comando en la tercera posición del payload (después del token y del byte de longitud) */
 void CommSendInfo(_sDato *datosCom, uint8_t bufferAux[], uint8_t bytes);	/*!< calculo y envio el checksum */
-
+void dataWriter(_sDato *datosCom);
 
 
 #endif /* INC_UNERPROTOCOL_H_ */

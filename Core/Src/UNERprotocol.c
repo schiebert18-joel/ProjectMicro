@@ -111,7 +111,7 @@ void CommDecodeHeader(_sDato *datosCom){
  */
 void CommSendInfo(_sDato *datosCom ,uint8_t bufferAux[], uint8_t bytes){
 
-    uint8_t bufAux[20], indiceAux=0,cks=0,i=0;
+    uint8_t bufAux[40], indiceAux=0,cks=0,i=0;
 
     bufAux[indiceAux++]='U';
     bufAux[indiceAux++]='N';

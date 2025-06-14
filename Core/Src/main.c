@@ -38,13 +38,12 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define NUM_CHANNELS_ADC 8
+#define NUM_CHANNELS_ADC 9
 #define RINGBUFFER_Tx 	256
 #define RINGBUFFER_Rx 	256
 
 #define IS250US 		myFlags.individualFlags.bit1
 #define ADCready		myFlags.individualFlags.bit2
-#define EnginesFlag		myFlags.individualFlags.bit3
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -72,8 +71,10 @@ _sEng motorL,motorR;
 _eEngState estado; /*!< Creo que lo puedo borrar*/
 _sMPUxyz DatosMPU;
 
+uint16_t adcBuffer[NUM_CHANNELS_ADC];
 uint8_t commBufferRx[RINGBUFFER_Tx];
 uint8_t commBufferTx[RINGBUFFER_Rx];
+//uint8_t asd = 1;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -97,6 +98,7 @@ void MotorL_SetPIN(_eEngState estado);
 void MotorR_SetPIN(_eEngState estado);
 
 /*		  MPU		*/
+void MPU6050_Init(I2C_HandleTypeDef *hi2c);
 
 /* USER CODE END PFP */
 
@@ -106,22 +108,11 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 	if(htim -> Instance == TIM1){
 		IS250US = TRUE;
 	}
-
+	HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&sensorIR.bufferADCvalue, 9);
 }
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
-//	char usbMsg[128];
 
-	  if (hadc->Instance == ADC1) {
-//			for (uint8_t i = 0; i < NUM_CHANNELS_ADC; i++) {
-//				sensorIR.currentValue[i] = sensorIR.bufferADCvalue[i];
-//			}
-//			ADCready = TRUE;
-		}
-//		sprintf(usbMsg,
-//		"PA0:%4u \r\n",
-//		sensorIR.bufferADCvalue[0]);
-//		CDC_Transmit_FS((uint8_t*)usbMsg, strlen(usbMsg));
 }
 
 void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c){
@@ -135,7 +126,6 @@ void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c){
 	DatosMPU.x.gyro = (DatosMPU.bufData[8] << 8) | DatosMPU.bufData[9];
 	DatosMPU.y.gyro = (DatosMPU.bufData[10] << 8) | DatosMPU.bufData[11];
 	DatosMPU.z.gyro = (DatosMPU.bufData[12] << 8) | DatosMPU.bufData[13];
-
 }
 
 
@@ -179,16 +169,17 @@ int main(void)
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start_IT(&htim1);
   HAL_TIM_Base_Start_IT(&htim3);
-  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&sensorIR.bufferADCvalue, NUM_CHANNELS_ADC);
+//  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&sensorIR.bufferADCvalue, 9);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
 
   en_InitENG(&motorL, &MotorL_SetPWM, &MotorL_SetPIN, htim3.Instance->ARR); /*!< asigno a cada motor una direccio de memoria para manejarlo desde la lib */
   en_InitENG(&motorR, &MotorR_SetPWM, &MotorR_SetPIN, htim3.Instance->ARR); /*!< En donde, (htim3.Instance->ARR) es el valor maximo de PWM */
 
+  MPU6050_Init(&hi2c1);
+
   IS250US = FALSE;
-  ADCready = FALSE;
-  EnginesFlag = TRUE;
+  ADCready = TRUE;
   datosComSerie.Rx.indexRead = 0;
   datosComSerie.Rx.indexWrite =0;
   myFlags.allFlags = 0;
@@ -208,22 +199,16 @@ int main(void)
 	  if(IS250US){
 		  time250us++;
 		  IS250US =! IS250US;
-//		  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&sensorIR.bufferADCvalue, NUM_CHANNELS_ADC);
 		  if(time250us >= 40){
-			  HAL_I2C_Mem_Read_DMA(&hi2c1, MPU6050_ADDR, ACCEL_XOUT_REG, MemAddSize, (uint8_t*)&DatosMPU.bufData, 14);
 			  time10ms++;
 			  time250us = 0;
 			  if(time10ms == 10){
+				  HAL_I2C_Mem_Read_DMA(&hi2c1, MPU6050_ADDR, ACCEL_XOUT_REG, MemAddSize, (uint8_t*)&DatosMPU.bufData, 14);
 				  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 				  time10ms = 0;
 			  }
 		  }
 	  }
-
-//	  if(ADCready){
-//		  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&sensorIR.bufferADCvalue, NUM_CHANNELS_ADC);
-//		  ADCready = FALSE;
-//	  }
 
   }
   /* USER CODE END 3 */
@@ -303,7 +288,7 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 8;
+  hadc1.Init.NbrOfConversion = 9;
   hadc1.Init.DMAContinuousRequests = DISABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
@@ -313,18 +298,9 @@ static void MX_ADC1_Init(void)
 
   /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
   */
-  sConfig.Channel = ADC_CHANNEL_0;
-  sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
   sConfig.Channel = ADC_CHANNEL_1;
-  sConfig.Rank = 2;
+  sConfig.Rank = 1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_56CYCLES;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -333,7 +309,7 @@ static void MX_ADC1_Init(void)
   /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
   */
   sConfig.Channel = ADC_CHANNEL_2;
-  sConfig.Rank = 3;
+  sConfig.Rank = 2;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -342,7 +318,7 @@ static void MX_ADC1_Init(void)
   /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
   */
   sConfig.Channel = ADC_CHANNEL_3;
-  sConfig.Rank = 4;
+  sConfig.Rank = 3;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -351,7 +327,7 @@ static void MX_ADC1_Init(void)
   /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
   */
   sConfig.Channel = ADC_CHANNEL_4;
-  sConfig.Rank = 5;
+  sConfig.Rank = 4;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -360,7 +336,7 @@ static void MX_ADC1_Init(void)
   /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
   */
   sConfig.Channel = ADC_CHANNEL_5;
-  sConfig.Rank = 6;
+  sConfig.Rank = 5;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -369,7 +345,7 @@ static void MX_ADC1_Init(void)
   /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
   */
   sConfig.Channel = ADC_CHANNEL_6;
-  sConfig.Rank = 7;
+  sConfig.Rank = 6;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -378,7 +354,26 @@ static void MX_ADC1_Init(void)
   /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
   */
   sConfig.Channel = ADC_CHANNEL_7;
+  sConfig.Rank = 7;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_8;
   sConfig.Rank = 8;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_9;
+  sConfig.Rank = 9;
+  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -588,6 +583,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LED_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : PA0 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
   /*Configure GPIO pins : OutEngB_1_Pin OutEngB_2_Pin OutEngA_2_Pin */
   GPIO_InitStruct.Pin = OutEngB_1_Pin|OutEngB_2_Pin|OutEngA_2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -655,7 +656,7 @@ void CommComunicationsTask(_sDato *datosCom){
  *
  */
 void CommDecodeData(_sDato *datosComLib){
-    uint8_t bufAux[20], indiceAux=0,bytes=0;
+    uint8_t bufAux[30], indiceAux=0,bytes=0;
     uint32_t velL = 0, velR = 0;
 
     switch (datosComLib->Rx.buffercomm[datosComLib->indexStart+2])/*!< ID EN LA POSICION 2, porque es donde se adjunta el byte que te dice "ALIVE, FIRMWARE, ETC" */
@@ -672,18 +673,41 @@ void CommDecodeData(_sDato *datosComLib){
 		bytes=0x02;
     break;
 
-    break;
-
     case IR:
         bufAux[indiceAux++] = IR;
-        w.u16[0] = sensorIR.bufferADCvalue[0];
+        w.u16[0] = adcBuffer[0];
         bufAux[indiceAux++] = w.u8[0];  // LSB
         bufAux[indiceAux++] = w.u8[1];  // MSB
-        bytes = 4; // 1 byte para ID, 2 bytes por canal + Cks
 
-//        for (uint8_t i = 0; i < NUM_CHANNELS_ADC; i++) {
+        w.u16[0] = adcBuffer[1];
+        bufAux[indiceAux++] = w.u8[0];  // LSB
+        bufAux[indiceAux++] = w.u8[1];  // MSB
 
-//        }
+        w.u16[0] = adcBuffer[2];
+        bufAux[indiceAux++] = w.u8[0];  // LSB
+        bufAux[indiceAux++] = w.u8[1];  // MSB
+
+        w.u16[0] = adcBuffer[3];
+        bufAux[indiceAux++] = w.u8[0];  // LSB
+        bufAux[indiceAux++] = w.u8[1];  // MSB
+
+        w.u16[0] = adcBuffer[4];
+        bufAux[indiceAux++] = w.u8[0];  // LSB
+        bufAux[indiceAux++] = w.u8[1];  // MSB
+
+        w.u16[0] = adcBuffer[5];
+        bufAux[indiceAux++] = w.u8[0];  // LSB
+        bufAux[indiceAux++] = w.u8[1];  // MSB
+
+        w.u16[0] = adcBuffer[6];
+        bufAux[indiceAux++] = w.u8[0];  // LSB
+        bufAux[indiceAux++] = w.u8[1];  // MSB
+
+        w.u16[0] = adcBuffer[7];
+        bufAux[indiceAux++] = w.u8[0];  // LSB
+        bufAux[indiceAux++] = w.u8[1];  // MSB
+
+        bytes = 18; // 1 byte para ID, 2 bytes por canal + Cks
 
 	break;
 
@@ -751,7 +775,6 @@ void CommDecodeData(_sDato *datosComLib){
     	bufAux[indiceAux++] = w.u8[1];
 
     	bytes = 14;
-
 
     break;
 
