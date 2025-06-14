@@ -28,6 +28,8 @@
 #include "ADC.h"
 #include "Engines.h"
 #include "MPU6050.h"
+#include "Fonts.h"
+#include "ssd1306_oled.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -100,6 +102,10 @@ void MotorR_SetPIN(_eEngState estado);
 /*		  MPU		*/
 void MPU6050_Init(I2C_HandleTypeDef *hi2c);
 
+/* 		  I2C		*/
+//uint8_t I2C_DMA_Transmit(uint16_t Dev_Address,uint16_t reg,uint8_t *p_Data, uint16_t _Size);
+//uint8_t I2C_1_Abstract_Master_Transmit_Blocking(uint16_t Dev_Address, uint8_t *p_Data, uint16_t _Size, uint32_t _Timeout);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -112,7 +118,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 }
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
-
+	//lamar a la funcion para hacer el filtrado de datos
 }
 
 void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c){
@@ -169,7 +175,6 @@ int main(void)
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start_IT(&htim1);
   HAL_TIM_Base_Start_IT(&htim3);
-//  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&sensorIR.bufferADCvalue, 9);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
 
@@ -177,6 +182,16 @@ int main(void)
   en_InitENG(&motorR, &MotorR_SetPWM, &MotorR_SetPIN, htim3.Instance->ARR); /*!< En donde, (htim3.Instance->ARR) es el valor maximo de PWM */
 
   MPU6050_Init(&hi2c1);
+
+  SSD1306_Init(); 		/*! Inicializamos el OLED */
+  HAL_Delay(100);
+  SSD1306_Fill(BLACK);	/*! Limpiamos pantalla (rellenamos de negro) */
+  SSD1306_GotoXY(0, 0); /*! Posicionamos cursor (esquina superior izquierda) */
+  SSD1306_Puts("tkm Lu", &Font_7x10, WHITE); /*!  Escribimos un texto 	*/
+  SSD1306_UpdateScreen(); /*! Enviamos el buffer a la pantalla */
+
+//  Display_Set_I2C_Master_Transmit(&I2C_DMA_Transmit, &I2C_1_Abstract_Master_Transmit_Blocking);
+//  SSD1306_Init();
 
   IS250US = FALSE;
   ADCready = TRUE;

@@ -49,5 +49,7 @@ typedef struct{
 	uint8_t bufData[14];
 }_sMPUxyz;
 
+//void MPU6050_NonBlocking_DMA(uint8_t (*Master_Transmit)(uint16_t DevAddress,uint16_t reg,uint8_t *pData, uint16_t Size),
+//		uint8_t (*Master_Recive)(uint16_t DevAddress,uint16_t reg,uint8_t *pData, uint16_t Size));
 
 #endif /* INC_MPU6050_H_ */
